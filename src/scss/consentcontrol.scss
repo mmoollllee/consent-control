@@ -9,6 +9,11 @@
    max-width: 400px;
    box-shadow: 0 0 20px -7px rgba(0, 0, 0, .3);
    text-align: center;
+   padding: 1em;
+   font-size: 0.9em;
+   border-radius: 5px;
+   margin: 0;
+   background: #fafafa;
 
    &,
    * {
@@ -32,73 +37,65 @@
       }
    }
 
-   .message {
-      padding: 1em;
-      font-size: 0.9em;
-      border-radius: 5px;
+   h3 {
+      font-size: 1.1em;
+      font-weight: 600;
       margin: 0;
-      background: #fafafa;
+   }
 
-      h3 {
-         font-size: 1.1em;
-         font-weight: 600;
+   h4 {
+      font-size: 1em;
+      margin-bottom: 0;
+      font-weight: 600;
+   }
+
+   p,
+   .switches {
+      margin-bottom: 0.5em;
+   }
+
+   a {
+      white-space: nowrap;
+   }
+
+   .switches {
+
+      .form-check-input[indeterminate]~.form-check-label {
+         &::after {
+            -webkit-transform: translateX(0.5rem);
+            transform: translateX(0.5rem);
+            opacity: 0.5;
+         }
+      }
+
+      label {
+         cursor: pointer;
+
+         &:hover {
+            &:before {
+               border-color: var(--primary, #000);
+            }
+         }
+      }
+
+      p, li {
          margin: 0;
       }
 
-      h4 {
-         font-size: 1em;
-         margin-bottom: 0;
-         font-weight: 600;
-      }
+      .form-check:not(.child) {
+         border-bottom: 1px solid #fff;
+         padding-top: 1em;
+         padding-bottom: .5em;
+         padding-left: 0;
 
-      p,
-      .switches {
-         margin-bottom: 0.5em;
-      }
-
-      a {
-         white-space: nowrap;
-      }
-
-      .switches {
-
-         .form-check-input[indeterminate]~.form-check-label {
-            &::after {
-               -webkit-transform: translateX(0.5rem);
-               transform: translateX(0.5rem);
-               opacity: 0.5;
-            }
+         &>label {
+            font-weight: 600;
+            font-size: 1.2em;
+            line-height: 1.4;
          }
 
-         label {
-            cursor: pointer;
-
-            &:hover {
-               &:before {
-                  border-color: var(--primary, #000);
-               }
-            }
-         }
-
-         p, li {
-            margin: 0;
-         }
-
-         .form-check:not(.child) {
-            border-bottom: 1px solid #fff;
-            padding-top: 1em;
-            padding-bottom: .5em;
-            padding-left: 0;
-
-            &>label {
-               font-weight: 600;
-               font-size: 1.2em;
-               line-height: 1.4;
-            }
-
-            &:last-child {
-               border-bottom: 0 none;
-            }
+         &:last-child {
+            border-bottom: 0 none;
          }
       }
    }
@@ -112,52 +109,50 @@
    }
 
    &.is-collapsed {
-      .message {
-         header {
-            padding: 0 !important;
-         }
+      header {
+         padding: 0 !important;
+      }
 
-         h3 {
+      h3 {
+         display: none;
+      }
+
+      .switches {
+         display: flex;
+         flex-wrap: wrap;
+         text-align: center;
+         background: transparent;
+         justify-content: space-around;
+         font-size: 1.1em;
+
+         .description {
             display: none;
          }
 
-         .switches {
-            display: flex;
-            flex-wrap: wrap;
-            text-align: center;
-            background: transparent;
-            justify-content: space-around;
-            font-size: 1.1em;
+         .form-check {
+            flex: 0 0 auto;
+            width: auto;
+            max-width: none;
+            padding-left: 2.5em;
 
-            .description {
+            label {
+               font-weight: inherit;
+               font-size: inherit;
+               line-height: 1.68;
+            }
+
+            ul {
                display: none;
             }
-
-            .form-check {
-               flex: 0 0 auto;
-               width: auto;
-               max-width: none;
-               padding-left: 2.5em;
-
-               label {
-                  font-weight: inherit;
-                  font-size: inherit;
-                  line-height: 1.68;
-               }
-
-               ul {
-                  display: none;
-               }
-            }
          }
+      }
 
-         .collapsed-only {
-            display: inline-block;
-         }
+      .collapsed-only {
+         display: inline-block;
+      }
 
-         .uncollapsed-only {
-            display: none;
-         }
+      .uncollapsed-only {
+         display: none;
       }
    }
 }
