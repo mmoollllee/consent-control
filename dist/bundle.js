@@ -411,7 +411,7 @@ const initConsentControlBanner = () => {
 
    let submitButton = container.querySelector('#consent-control--submit');
 
-   if(!submitButton) {
+   if (!submitButton) {
       container.insertAdjacentHTML(
          'beforeend',
          self.options.template.footer()
