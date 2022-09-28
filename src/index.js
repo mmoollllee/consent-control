@@ -1,3 +1,3 @@
-import { ConsentControl } from './ConsentControl';
+import { ConsentControl } from './ConsentControl/index';
 
 export { ConsentControl };

@@ -1,11 +1,23 @@
 const fs = require("fs");
 const sass = require("sass");
 
-const files = ["consentcontrol", "bootstrap"];
+const files = ["ConsentControl.main", "ConsentControl.bootstrap"];
 
-for (const file_name of files) {
-   let input_file = `./src/scss/${file_name}.scss`;
-   let output_file = `./dist/${file_name}.css`;
+for (const file of files) {
+  let input_file;
+  let output_file;
+
+  const words = file.split(".");
+  const component = words[0];
+  const file_name = words[1] || false;
+
+  if (file_name) {
+    input_file = `./src/${component}/scss/${file_name}.scss`;
+    output_file = `./dist/${component.toLowerCase()}.${file_name}.css`;
+  } else {
+    input_file = `./src/${component}/scss/${component}.scss`;
+    output_file = `./dist/${component}.css`;
+  }
 
   console.log(`${input_file} → ${output_file}...`);
 

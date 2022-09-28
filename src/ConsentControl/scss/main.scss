@@ -60,29 +60,20 @@
 
    .switches {
 
-      .form-check-input[indeterminate]~.form-check-label {
-         &::after {
-            -webkit-transform: translateX(0.5rem);
-            transform: translateX(0.5rem);
-            opacity: 0.5;
-         }
+      input, label {
+         cursor: pointer;
       }
 
       label {
-         cursor: pointer;
-
-         &:hover {
-            &:before {
-               border-color: var(--primary, #000);
-            }
-         }
+         display: inline;
       }
 
       p, li {
          margin: 0;
+         padding: 0;
       }
 
-      .form-check:not(.child) {
+      .form-check {
          border-bottom: 1px solid #fff;
          padding-top: 1em;
          padding-bottom: .5em;
@@ -96,6 +87,11 @@
 
          &:last-child {
             border-bottom: 0 none;
+         }
+
+         ul {
+            list-style: none;
+            padding: 0;
          }
       }
    }

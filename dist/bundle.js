@@ -3,47 +3,6 @@
 Object.defineProperty(exports, '__esModule', { value: true });
 
 /**
- * Save a value to the ConsentControl Cookie
- * @param {String || Array} cvalue The value to be toggled
- */
-
-/**
- * Get values from Cookie
- * @returns {Array}
- */
-const getConsentControlCookie = (
-   cookieName = window.ConsentControl.cookieName || 'privacyconsent'
-) => {
-   var name = cookieName + '=';
-   var ca = document.cookie.split(';');
-   for (var i = 0; i < ca.length; i++) {
-      var c = ca[i];
-      while (c.charAt(0) == ' ') {
-         c = c.substring(1);
-      }
-      if (c.indexOf(name) == 0) {
-         return c.substring(name.length, c.length).split('|')
-      }
-   }
-   return false
-};
-
-/**
- * Hide Privacy Controls on Privacy-Page.
- * Privacy Controls might look like this:
- * <h3>Data collection</h3>
- * <p>Click the following button to edit your settings and enable or disable different services we use for a better user experience</p>
- * <button href="#" title="Privacy Consent Settings" class="consent-control--open">Click to change settings.</button>
- */
-const hideConsentControlButtons = () => {
-   const buttons = document.querySelectorAll(".consent-control--open");
-   if (!buttons || buttons.length < 1) { return false}
-   buttons.array.forEach(element => {
-      element.style.display = "none";
-   });
-};
-
-/**
  * Check to see if an object is a plain object (created using "{}" or "new Object").
  * @param {*} obj Variable of any type
  * @returns {Boolean}
@@ -104,136 +63,218 @@ const extend = (...args) => {
   return result;
 };
 
+/**
+ * Save a value to the ConsentControl Cookie
+ * @param {String || Array} cvalue The value to be toggled
+ */
+const setConsentControlCookie = (
+   cvalue,
+   cookieName = window.ConsentControl.cookieName || 'privacyconsent'
+) => {
+   var ccurrent = getConsentControlCookie() || [];
+
+   cvalue = Array.isArray(cvalue) ? cvalue : [cvalue];
+
+   for (var i = 0; i < cvalue.length; i++) {
+      var item = cvalue[i];
+
+      // Get index of current value in current cookie
+      var index = ccurrent.indexOf(item);
+      // and push or splice from ccurrent
+      if (index === -1) {
+         ccurrent.push(item);
+      } else {
+         ccurrent.splice(item, 1);
+      }
+   }
+
+   var domain = window.location.hostname;
+   var exdays = 365;
+   var d = new Date();
+   d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
+   var expires = 'expires=' + d.toUTCString();
+   document.cookie =
+      cookieName +
+      '=' +
+      cvalue.join('|') +
+      ';' +
+      expires +
+      ';path=/;samesite=lax;domain=' +
+      domain;
+};
+
+/**
+ * Get values from Cookie
+ * @returns {Array}
+ */
+const getConsentControlCookie = (
+   cookieName = window.ConsentControl.cookieName || 'privacyconsent'
+) => {
+   var name = cookieName + '=';
+   var ca = document.cookie.split(';');
+   for (var i = 0; i < ca.length; i++) {
+      var c = ca[i];
+      while (c.charAt(0) == ' ') {
+         c = c.substring(1);
+      }
+      if (c.indexOf(name) == 0) {
+         return c.substring(name.length, c.length).split('|')
+      }
+   }
+   return false
+};
+
+/**
+ * Hide Privacy Controls on Privacy-Page.
+ * Privacy Controls might look like this:
+ * <h3>Data collection</h3>
+ * <p>Click the following button to edit your settings and enable or disable different services we use for a better user experience</p>
+ * <button href="#" title="Privacy Consent Settings" class="consent-control--open">Click to change settings.</button>
+ */
+const hideConsentControlButtons = () => {
+   const buttons = document.querySelectorAll(".consent-control--open");
+   if (!buttons || buttons.length < 1) { return false}
+   buttons.array.forEach(element => {
+      element.style.display = "none";
+   });
+};
+
+const defaults = {
+   cookieName: 'consentcontrol',
+
+   // Element containing main structure
+   parentEl: null,
+
+   template: {
+      strings: {
+         mainTitle: 'Cookies & Dienste',
+         mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a
+         href="/datenschutz/">Datenschutzbestimmungen</a> <a href="/impressum/">Impressum</a>`,
+         settingsButtonLabel: 'Weitere Informationen',
+         resetButtonLabel: 'Alle Cookies löschen',
+         resetMessage: 'Alle Cookies wurden erfolgreich gelöscht.',
+         closeButtonLabel: 'Schließen',
+         okButtonLabel: 'OK',
+         allButtonLabel: 'Alle erlauben',
+      },
+
+      // Main container element. Needs #consent-control-banner
+      main: function () {
+         return `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
+         </div>`.replace(
+            /{\w+}/g,
+            (x) => this.strings[x.substring(1, x.length - 1)] || x
+         )
+      },
+
+      headerEl: 'header',
+      // Header default markup needs to have a button.consent-control--open
+      header: function () {
+         return `<h3>{mainTitle}</h3>
+         <p>{mainDescription}</p>
+         <button class="collapsed-only consent-control--open">{settingsButtonLabel}</button>`.replace(
+            /{\w+}/g,
+            (x) => this.strings[x.substring(1, x.length - 1)] || x
+         )
+      },
+
+      switches: function () {
+         return `<div class="switches"></div>`
+      },
+      switch: function (key, values) {
+         return `<div class="form-check form-switch">
+          <input id="consent-{key}" value="{key}" class="form-check-input" type="checkbox" role="switch">
+          <label for="consent-{key}" class="form-check-label">{label}</label>
+        </div>`
+            .replace(
+               /{\w+}/g,
+               (x) => values[x.substring(1, x.length - 1)] || x
+            )
+            .replace(/{\w+}/g, (x) => (x == '{key}' ? key : x))
+      },
+      switchChild: function (child) {
+         return `<li>
+            <h4>{label}</h4>
+          </li>`.replace(/{\w+}/g, (x) => child[x.substring(1, x.length - 1)] || x)
+      },
+
+      footer: function() {
+         return `
+         <div class="uncollapsed-only">
+             <button class="consent-control--reset">{resetButtonLabel}</button>
+         </div>
+         <div class="control">
+             <button class="secondary uncollapsed-only consent-control--close">{closeButtonLabel}</button>
+             <button id="consent-control--submit">{okButtonLabel}</button>
+             <button id="consent-control--submit-all">{allButtonLabel}</button>
+         </div>`.replace(
+            /{\w+}/g,
+            (x) => this.strings[x.substring(1, x.length - 1)] || x
+         )
+      }
+   },
+
+   switches: {
+      necessary: {
+         disabled: true,
+         checked: true,
+         label: 'Notwendige',
+         description: 'Stellt die Funktionalität der Website sicher.',
+         childs: [
+            {
+               label: 'Seiten-Einstellungen',
+               description: `Speichert Ihre Einstellungen in diesem Banner, Cookie
+            <strong>consentbanner</strong> Speicherdauer 1 Jahr`,
+            },
+            {
+               label: 'Schriftarten',
+               description:
+                  'Lädt die Schriftart "Eurostile" von externen Servern von Adobe Fonts / Typekit',
+            },
+         ],
+      },
+      analytics: {
+         label: 'Analytics',
+         description:
+            'Erlauben Sie dem Website-Betreiber, das Angebot auf dieser Webseite zu bewerten und zu verbessern.',
+         childs: [
+            {
+               label: 'Google Tag Manager',
+               description: `'UA-105811621-1, Cookie <strong>_ga</strong> Speicherdauer 2 Jahre`,
+            },
+         ],
+      },
+      functional: {
+         label: 'Funktionell',
+         description: 'Funktionen für die Darstellung der Inhalte.',
+         childs: [
+            {
+               label: 'Google Maps',
+               description:
+                  'Stellt eine Karte mit Routenbeschreibung zur Verfügung und lädt diese von externen Servern von Google.',
+            },
+         ],
+      },
+   },
+};
+
 window.ConsentControl = {};
 const self = window.ConsentControl;
+
 const ConsentControl = (options = {}) => {
-   const defaults = {
-      cookieName: 'consentcontrol',
-
-      // Element containing main structure
-      parentEl: null,
-
-      template: {
-         strings: {
-            mainTitle: 'Cookies & Dienste',
-            mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a
-            href="/datenschutz/">Datenschutzbestimmungen</a> <a href="/impressum/">Impressum</a>`,
-            settingsButtonLabel: 'Weitere Informationen',
-            resetButtonLabel: 'Alle Cookies löschen',
-            resetMessage: 'Alle Cookies wurden erfolgreich gelöscht.',
-            closeButtonLabel: 'Schließen',
-            okButtonLabel: 'OK',
-            allButtonLabel: 'Alle erlauben',
-         },
-
-         // Main container element. Needs #consent-control-banner
-         main: function () {
-            return `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
-            </div>`.replace(
-               /{\w+}/g,
-               (x) => this.strings[x.substring(1, x.length - 1)] || x
-            )
-         },
-
-         headerEl: 'header',
-         // Header default markup needs to have a button.consent-control--open
-         header: function () {
-            return `<h3>{mainTitle}</h3>
-            <p>{mainDescription}</p>
-            <button class="collapsed-only consent-control--open">{settingsButtonLabel}</button>`.replace(
-               /{\w+}/g,
-               (x) => this.strings[x.substring(1, x.length - 1)] || x
-            )
-         },
-
-         switches: function () {
-            return `<div class="switches"></div>`
-         },
-         switch: function (key, values) {
-            return `<div class="form-check form-switch">
-             <input id="consent-{key}" value="{key}" class="form-check-input" type="checkbox" role="switch">
-             <label for="consent-{key}" class="form-check-label">{label}</label>
-           </div>`
-               .replace(
-                  /{\w+}/g,
-                  (x) => values[x.substring(1, x.length - 1)] || x
-               )
-               .replace(/{\w+}/g, (x) => (x == '{key}' ? key : x))
-         },
-         switchChild: function (child) {
-            return `<li>
-               <h4>{label}</h4>
-             </li>`.replace(/{\w+}/g, (x) => child[x.substring(1, x.length - 1)] || x)
-         },
-
-         footer: function() {
-            return `
-            <div class="uncollapsed-only">
-                <button class="consent-control--reset">{resetButtonLabel}</button>
-            </div>
-            <div class="control">
-                <button class="secondary uncollapsed-only consent-control--close">{closeButtonLabel}</button>
-                <button id="consent-control--submit">{okButtonLabel}</button>
-                <button id="consent-control--submit-all">{allButtonLabel}</button>
-            </div>`.replace(
-               /{\w+}/g,
-               (x) => this.strings[x.substring(1, x.length - 1)] || x
-            )
-         }
-      },
-
-      switches: {
-         necessary: {
-            disabled: true,
-            checked: true,
-            label: 'Notwendige',
-            description: 'Stellt die Funktionalität der Website sicher.',
-            childs: [
-               {
-                  label: 'Seiten-Einstellungen',
-                  description: `Speichert Ihre Einstellungen in diesem Banner, Cookie
-               <strong>consentbanner</strong> Speicherdauer 1 Jahr`,
-               },
-               {
-                  label: 'Schriftarten',
-                  description:
-                     'Lädt die Schriftart "Eurostile" von externen Servern von Adobe Fonts / Typekit',
-               },
-            ],
-         },
-         analytics: {
-            label: 'Analytics',
-            description:
-               'Erlauben Sie dem Website-Betreiber, das Angebot auf dieser Webseite zu bewerten und zu verbessern.',
-            childs: [
-               {
-                  label: 'Google Tag Manager',
-                  description: `'UA-105811621-1, Cookie <strong>_ga</strong> Speicherdauer 2 Jahre`,
-               },
-            ],
-         },
-         functional: {
-            label: 'Funktionell',
-            description: 'Funktionen für die Darstellung der Inhalte.',
-            childs: [
-               {
-                  label: 'Google Maps',
-                  description:
-                     'Stellt eine Karte mit Routenbeschreibung zur Verfügung und lädt diese von externen Servern von Google.',
-               },
-            ],
-         },
-      },
-   };
    self.options = extend(true, defaults, options);
+
+   self.status = [];
 
    // Show Cookie
    const cookie = getConsentControlCookie();
    if (!cookie) {
       hideConsentControlButtons();
-      showConsentControlBanner(cookie);
+      showConsentControlBanner();
    }
-   // runServices(ccookie);
+   runServices();
+
+   window.ConsentControl.show = showConsentControlBanner();
 
    // /**
    //  * Bind Event to Control Button on Privacy Page
@@ -243,73 +284,31 @@ const ConsentControl = (options = {}) => {
    //   showConsentBanner();
    //  })
 
-   //  /**
-   //   * Bind Event to Submit Button
-   //   */
-   //  jQuery("#consent-banner--submit").click(function (e) {
-   //     e.preventDefault();
-   //     ccookie = [];
-   //     jQuery("#consent-banner").find("input").each(function() {
-   //        if (jQuery(this).is(':checked')) {
-   //           ccookie.push(jQuery(this).val())
-   //        }
-   //     })
-   //     setConsentBannerCookie(ccookie);
-   //     jQuery("#consent-banner").addClass("hide is-collapsed");
-   //     runServices(ccookie);
-   //  });
-
-   //  /**
-   //   * Bind Event to Allow All Button
-   //   */
-   //  jQuery("#consent-banner--submit-all").click(function (e) {
-   //     e.preventDefault();
-   //     ccookie = [];
-   //     jQuery("#consent-banner").find("input").each(function() {
-   //        ccookie.push(jQuery(this).val())
-   //     })
-   //     setConsentBannerCookie(ccookie);
-   //     jQuery("#consent-banner").addClass("hide is-collapsed");
-   //     runServices(ccookie);
-   //  });
-
-   //  /**
-   //   * Bind Event to Settings Button
-   //   */
-   //  jQuery(".consent-banner--settings").click(function (e) {
-   //     e.preventDefault();
-   //     jQuery("#consent-banner").toggleClass("is-collapsed");
-   //  });
-
-   //  /**
-   //   * Bind Event to Reset Button
-   //   */
-   //  jQuery("#consent-banner--reset").click(function (e) {
-   //     e.preventDefault();
-   //     deleteAllCookies();
-   //     jQuery(this).attr("disabled", "disabled")
-   //  });
 };
 
 /**
  * Initalise or (re-)open the Consent Control Banner with saved preferences if available
  */
-function showConsentControlBanner(cookie = getConsentControlCookie()) {
-   var consentControlEl = document.getElementById('#consent-control-banner');
-
-   if (!consentControlEl) {
-      consentControlEl = initConsentControlBanner();
+function showConsentControlBanner() {
+   const cookie = getConsentControlCookie();
+   self.El = document.getElementById('#consent-control-banner');
+   // if there is no Banner yet
+   if (!self.status.includes('initialized')) {
+      self.El = initConsentControlBanner();
+   }
+   if (!self.status.includes('events')) {
+      aliveConsentControlBanner();
    }
 
-   if (cookie) {
-      ccookie.forEach(function (i) {
-         consentControlEl
-            .find('input[value=' + i + ']')
-            .prop('checked', 'checked');
+   if (cookie.length) {
+      cookie.forEach(function (i) {
+         self.El.querySelectorAll('input[value=' + i + ']').forEach((i) => {
+            i.checked = true;
+         });
       });
    }
 
-   consentControlEl.classList.remove('hide');
+   self.El.classList.remove('hide');
 }
 
 /**
@@ -422,7 +421,99 @@ const initConsentControlBanner = () => {
    // Add class name for <html> element
    document.documentElement.classList.add('with-consentControl');
 
+   self.status.push("initialized");
+
    return container
 };
+
+const aliveConsentControlBanner = () => {
+   /**
+    * Bind Event to Submit Button
+    */
+   self.El.querySelector("#consent-control--submit").addEventListener('click', (e) => {
+      e.preventDefault();
+      const cookie = [];
+
+      self.El.querySelectorAll("input").forEach((i) => {
+         if (i.checked) {
+            cookie.push(i.value);
+         }
+      });
+
+      setConsentControlCookie(cookie);
+      self.El.classList.add("hide", "is-collapsed");
+      runServices();
+   });
+   
+   /**
+    * Bind Event to Allow All Button
+    */
+   self.El.querySelector("#consent-control--submit-all").addEventListener('click', (e) => {
+      e.preventDefault();
+      const cookie = [];
+
+      self.El.querySelectorAll("input").forEach((i) => {
+         cookie.push(i.value);
+      });
+
+      setConsentControlCookie(cookie);
+      self.El.classList.add("hide", "is-collapsed");
+      runServices();
+   });
+
+   /**
+    * Bind Event to Settings Button
+    */
+    self.El.querySelectorAll(".consent-control--close").forEach(function(e) {
+      e.addEventListener('click', (e) => {
+         e.preventDefault();
+         self.El.classList.add("is-collapsed");
+      });
+   });
+   self.El.querySelectorAll(".consent-control--open").forEach(function(e) {
+      e.addEventListener('click', (e) => {
+         e.preventDefault();
+         self.El.classList.remove("is-collapsed");
+      });
+   });
+
+   /**
+    * Bind Event to Reset Button
+    */
+   self.El.querySelectorAll(".consent-control--reset").forEach(function(e) {
+      e.addEventListener('click', (e) => {
+         e.preventDefault();
+         deleteAllCookies();
+      });
+   });
+};
+
+/**
+ * Initalise enabled services
+ * @param {Array} ccookie Current Cookie Data with services to be enabled
+ */
+function runServices() {
+   const cookie = getConsentControlCookie();
+   if (!cookie) {
+      return
+   }
+   console.log(cookie);
+
+   if (cookie.includes('necessary')) {
+      if (typeof consentnecessary === 'function') {
+         consentnecessary();
+      }
+   }
+   if (cookie.includes('analytics')) {
+      if (typeof consentanalytics === 'function') {
+         consentanalytics();
+      }
+   }
+   if (cookie.includes('functional')) {
+      if (typeof initMaps === 'function') {
+         initMaps();
+      }
+   }
+}
 
 exports.ConsentControl = ConsentControl;
