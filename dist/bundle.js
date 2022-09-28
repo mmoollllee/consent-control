@@ -113,8 +113,6 @@ const ConsentControl = (options = {}) => {
       // Element containing main structure
       parentEl: null,
 
-      bootstrap: true,
-
       template: {
          strings: {
             mainTitle: 'Cookies & Dienste',
@@ -319,8 +317,6 @@ function showConsentControlBanner(cookie = getConsentControlCookie()) {
  */
 const initConsentControlBanner = () => {
    const parentEl = self.options.parentEl || document.body;
-
-   if(!self.options.bootstrap) ;
 
    // Container
    let container = parentEl.querySelector('#consent-control-banner');
