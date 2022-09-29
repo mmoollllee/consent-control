@@ -7,6 +7,9 @@ Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a co
 
 ## Usage
 
+### Install
+Currently by cloning this repo to your local project and installing it with `npm i <path-to-consent-control>`
+
 ### Include CSS & Javascript
 
 ```html
