@@ -158,8 +158,8 @@
       }
 
       function initMap() {
-         loadScript('http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js', function() {
-            document.getElementsByTagName("head")[0].insertAdjacentHTML("beforeend","<link href=\"http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css\" rel=\"stylesheet\">");
+         loadScript('https://unpkg.com/leaflet@1.9.1/dist/leaflet.js', function() {
+            document.getElementsByTagName("head")[0].insertAdjacentHTML("beforeend","<link rel=\"stylesheet\" href=\"https://unpkg.com/leaflet@1.9.1/dist/leaflet.css\"  crossorigin=\"\" />");
             // Creating map options
             var mapOptions = {
                center: [17.385044, 78.486671],
@@ -170,7 +170,7 @@
             var map = new L.map("map", mapOptions);
             
             // Creating a Layer object
-            var layer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+            var layer = new L.TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
             
             // Adding layer to the map
             map.addLayer(layer);
