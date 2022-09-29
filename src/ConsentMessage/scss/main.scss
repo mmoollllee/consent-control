@@ -1,0 +1,26 @@
+.consent-message--wrapper {
+   min-height: 200px;
+   position: relative;
+   max-width: 100%;
+   display: inline-block;
+   background: #ececec;
+}
+
+.consent-message {
+   position: absolute;
+   left: 50%;
+   transform: translate(calc(-50% - 2rem));
+   z-index: 1000;
+   background: #fff;
+   border-radius: 5px;
+   max-width: 450px;
+   width: 85%;
+   margin: auto;
+   padding: 20px 30px;
+   margin: 2rem;
+   text-align: center;
+
+   p {
+      font-size: 90%;
+   }
+}

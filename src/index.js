@@ -1,3 +1,11 @@
 import { ConsentControl } from './ConsentControl/index';
+import { loadScript } from './lib/loadScript'
+import { getConsentControlCookie } from './lib/cookie.js'
 
-export { ConsentControl };
+import { ConsentMessage } from './ConsentMessage/index';
+
+window.loadScript = loadScript
+window.getConsentControlCookie = getConsentControlCookie
+window.ConsentControl = ConsentControl;
+
+export { ConsentControl, loadScript, getConsentControlCookie, ConsentMessage };

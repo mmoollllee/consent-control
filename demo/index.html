@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Consent Control Demo</title>
+   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-iYQeCzEYFbKjA/T2uDLTpkwGzCiq6soy8tYaI1GyVh/UjpbCx/TYkiZhlZB6+fzT" crossorigin="anonymous">
+   <link href="../dist/consentcontrol.main.css" rel="stylesheet" type="text/css" />
+   <link href="../dist/consentmessage.main.css" rel="stylesheet" type="text/css" />
+   <style>
+      .demo-font {
+         font-family: 'Courier Prime';
+      }
+   </style>
+</head>
+<body>
+   <div class="col-lg-8 mx-auto p-4 py-md-5">
+      <header class="d-flex align-items-center pb-3 mb-5 border-bottom">
+         <span class="fs-4 text-dark demo-font">Consent Control Demo</span>
+      </header>
+      <h1>User friendly consent control</h1>
+      <p class="fs-5 col-md-8">Consent Control gives the user full control before loading various assets, analytic tools or external services like Embedded Videos, Maps,...</p>
+      <div class="mb-5">
+         <a href="/docs/5.2/examples/" class="btn btn-primary btn-lg px-4">See Github Repo</a>
+      </div>
+      <hr class="col-3 col-md-2 mb-5">
+      <h1>Demo</h1>
+      <h2>Reopen Consent Control</h2>
+      <p>Place a button with <code>.consent-control--open</code> on privacy page</p>
+      <button class="btn btn-secondary consent-control--open">Show Consent Control Preferences</button>
+      <div class="row my-5">
+         <div class="col-12 col-md-6">
+            <h2>Consent iframes & videos directly</h2>
+            <p>Just use <code>data-src</code> instead</p>
+            <iframe data-src-name="Vimeo" data-src="https://player.vimeo.com/video/13038915?h=1e21b30cb2&color=e69705" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+         </div>
+         <div class="col-12 col-md-6">
+            <h2>Init Map</h2>
+            <p>Could be Google Maps too</p>
+            <div id="map" style="height: 360px; width: 640px" class="consent-message--wrapper">
+               <div class="consent-message"><button class="btn confirm btn-primary">Load Map</button><p class="mt-1 text-muted">This map is loaded from <i class="consent-message--source">Open Street Map</i>.<br>By Loading the Map your IP-address will be transmited to external servers. See <a href="#" title="privacy page link">privacy page</a> for more informations.</p></div>
+            </div>
+         </div>
+      </div>
+      <h2>Notes</h2>
+      <h3>If you don't use bootstrap</h3>
+      <p>Include <code>consentcontrol.bootstrap.css</code> to make use of the nice switches, or style them as you like</p>
+   </div>
+
+   <script src="../dist/bundle.min.js"></script>
+   <script>
+      window.onload = function() {
+         ConsentControl({
+            strings: {
+               mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a
+         href="#">Datenschutzbestimmungen</a> <a href="#">Impressum</a>`
+            },
+            template: {
+               header: `<h3>{mainTitle}</h3>
+                  <p>{mainDescription}</p>
+                  <button class="collapsed-only consent-control--open btn btn-light btn-sm">{settingsButtonLabel}</button>`,
+               footer: `<div class="uncollapsed-only mb-2">
+             <button class="consent-control--reset btn btn-light btn-sm">{resetButtonLabel}</button>
+         </div>
+         <div class="control">
+             <button class="uncollapsed-only consent-control--close btn btn-light btn-sm">{closeButtonLabel}</button>
+             <button id="consent-control--submit" class="btn btn-secondary btn-sm">{okButtonLabel}</button>
+             <button id="consent-control--submit-all" class="btn btn-danger btn-sm">{allButtonLabel}</button>
+         </div>`
+            },
+            switches: {
+               necessary: {
+               disabled: true,
+               checked: true,
+               label: 'Notwendige',
+               description: 'Stellt die Funktionalität der Website sicher.',
+               childs: [
+                  {
+                     label: 'Seiten-Einstellungen',
+                     description: `Speichert Ihre Einstellungen in diesem Banner, Cookie
+                  <strong>consentbanner</strong> Speicherdauer 1 Jahr`,
+                  },
+                  {
+                     label: 'Schriftarten',
+                     description:
+                        'Lädt die Schriftart "Courier Prime" von externen Servern von Google',
+                  },
+                  ],
+                  callback: function() {
+                     document.getElementsByTagName("head")[0].insertAdjacentHTML("beforeend","<link href=\"https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap\" rel=\"stylesheet\">");
+                  }
+               },
+            analytics: {
+               label: 'Analytics',
+               description:
+                  'Erlauben Sie dem Website-Betreiber, das Angebot auf dieser Webseite zu bewerten und zu verbessern.',
+               childs: [
+                  {
+                     label: 'Google Tag Manager',
+                     description: `'UA-123456789-1, Cookie <strong>_ga</strong> Speicherdauer 2 Jahre`,
+                  },
+               ],
+               callback: function() {
+                  var gtm = document.createElement('script');
+                  gtm.type = 'text/javascript';
+                  gtm.async = true;
+                  gtm.src = 'https://www.googletagmanager.com/gtag/js?id=UA-123456789-1';
+                  var s = document.getElementsByTagName('script')[0];
+                  s.parentNode.insertBefore(gtm, s);
+                  window.dataLayer = window.dataLayer || [];
+               
+                  function gtag() {
+                  dataLayer.push(arguments);
+                  }
+                  gtag('js', new Date());
+               
+                  gtag('config', 'UA-123456789-1');
+               }
+            },
+            functional: {
+               label: 'Funktionell',
+               description: 'Funktionen für die Darstellung der Inhalte.',
+               childs: [
+                  {
+                     label: 'Open Street Map',
+                     description:
+                        'Stellt eine Karte mit Routenbeschreibung zur Verfügung und lädt diese von externen Servern von Leaflet und Open Street Map.',
+                  },
+                  {
+                     label: 'Vimeo Videos',
+                     description:
+                        'Bindet Videos von Vimeo in die Webseite ein',
+                  }
+               ]
+            }
+            }
+         })
+      
+         const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')
+         iframes.forEach((element) => {
+            ConsentMessage(
+               'functional',
+               {
+                  template: {
+                     main: `<div class="consent-message"><button class="confirm btn btn-primary">Play-Icon</button><p class="mt-1 text-muted">{message}</p></div>`,
+                  },
+               },
+               element
+            )
+         })
+
+         ConsentMessage('functional', { template: false } ,document.querySelector("#map"), null , function() {
+            initMap()
+         })
+      }
+
+      function initMap() {
+         loadScript('http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js', function() {
+            document.getElementsByTagName("head")[0].insertAdjacentHTML("beforeend","<link href=\"http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css\" rel=\"stylesheet\">");
+            // Creating map options
+            var mapOptions = {
+               center: [17.385044, 78.486671],
+               zoom: 10
+            }
+            
+            // Creating a map object
+            var map = new L.map("map", mapOptions);
+            
+            // Creating a Layer object
+            var layer = new L.TileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+            
+            // Adding layer to the map
+            map.addLayer(layer);
+         })
+         // document.querySelector("#map").innerHTML('<p>Lets act as if the map was loaded, okay? This could be a function initMap() instead. I\'m too lazy to get an API key instead. We should all use <a href="https://www.openstreetmap.de/">Open Street Map</a> anyway!')
+      }
+   </script>
+</body>
+</html>

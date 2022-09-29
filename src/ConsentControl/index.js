@@ -1,7 +1,4 @@
-import { extend } from '../lib/extend'
-
-import { getConsentControlCookie, setConsentControlCookie } from '../lib/cookie.js'
-import { hideConsentControlButtons } from '../lib/functions.js'
+import { extend, getConsentControlCookie, setConsentControlCookie, template } from '../lib/index'
 
 import { defaults } from './defaults'
 
@@ -13,30 +10,28 @@ export const ConsentControl = (options = {}) => {
 
    self.status = [];
 
+   // Bind Event to Control Button on Privacy Page
+   document.querySelectorAll(".consent-control--open").forEach(function(e) {
+      e.addEventListener('click', (e) => {
+         e.preventDefault();
+         window.ConsentControl.show()
+      });
+   });
+
    // Show Cookie
-   const cookie = getConsentControlCookie()
-   if (!cookie) {
-      hideConsentControlButtons()
-      showConsentControlBanner()
+   if (!getConsentControlCookie()) {
+      window.ConsentControl.show()
    }
    runServices();
 
-   window.ConsentControl.show = showConsentControlBanner()
-
-   // /**
-   //  * Bind Event to Control Button on Privacy Page
-   //  */
-   // jQuery("#consent-banner--reopen button").click(function (e) {
-   //   e.preventDefault();
-   //   showConsentBanner();
-   //  })
-
 }
+
+window.ConsentControl = ConsentControl;
 
 /**
  * Initalise or (re-)open the Consent Control Banner with saved preferences if available
  */
-function showConsentControlBanner() {
+window.ConsentControl.show = () => {
    const cookie = getConsentControlCookie();
    self.El = document.getElementById('#consent-control-banner');
    // if there is no Banner yet
@@ -69,7 +64,7 @@ const initConsentControlBanner = () => {
    if (!container) {
       parentEl.insertAdjacentHTML(
          'beforeend',
-         self.options.template.main()
+         template(self, 'main')
       )
       container = parentEl.querySelector('#consent-control-banner')
    }
@@ -88,7 +83,7 @@ const initConsentControlBanner = () => {
       const header = document.createElement(
          self.options.template.headerEl
       )
-      header.innerHTML = self.options.template.header()
+      header.innerHTML = template(self, 'header')
       container.appendChild(header)
       openButton = header.querySelector('.consent-control--open')
    }
@@ -99,7 +94,7 @@ const initConsentControlBanner = () => {
    if (!switches) {
       container.insertAdjacentHTML(
          'beforeend',
-         self.options.template.switches()
+         template(self, 'switches')
       )
       switches = container.querySelector('.switches')
 
@@ -109,7 +104,7 @@ const initConsentControlBanner = () => {
       )) {
          switches.insertAdjacentHTML(
             'beforeend',
-            self.options.template.switch(key, item)
+            template(self, 'switch', key, item)
          )
 
          const itemEl = switches.lastElementChild
@@ -139,7 +134,7 @@ const initConsentControlBanner = () => {
             for (const [key, child] of Object.entries(item.childs)) {
                childsEl.insertAdjacentHTML(
                   'beforeend',
-                  self.options.template.switchChild(child)
+                  template(self, 'switchChild', false, false, child)
                )
 
                const childEl = childsEl.lastElementChild
@@ -160,7 +155,7 @@ const initConsentControlBanner = () => {
    if (!submitButton) {
       container.insertAdjacentHTML(
          'beforeend',
-         self.options.template.footer()
+         template(self, 'footer')
       )
       submitButton = container.querySelector('#consent-control--submit')
    }
@@ -244,21 +239,11 @@ function runServices() {
    if (!cookie) {
       return
    }
-   console.log(cookie);
+   
+   cookie.forEach((i) => {
+      if (typeof self.options.switches[i].callback === 'function') {
+         self.options.switches[i].callback()
+      }
+   })
 
-   if (cookie.includes('necessary')) {
-      if (typeof consentnecessary === 'function') {
-         consentnecessary()
-      }
-   }
-   if (cookie.includes('analytics')) {
-      if (typeof consentanalytics === 'function') {
-         consentanalytics()
-      }
-   }
-   if (cookie.includes('functional')) {
-      if (typeof initMaps === 'function') {
-         initMaps()
-      }
-   }
 }

@@ -1,7 +1,7 @@
 const fs = require("fs");
 const sass = require("sass");
 
-const files = ["ConsentControl.main", "ConsentControl.bootstrap"];
+const files = ["ConsentControl", "ConsentControl.bootstrap", "ConsentMessage"];
 
 for (const file of files) {
   let input_file;
@@ -15,8 +15,8 @@ for (const file of files) {
     input_file = `./src/${component}/scss/${file_name}.scss`;
     output_file = `./dist/${component.toLowerCase()}.${file_name}.css`;
   } else {
-    input_file = `./src/${component}/scss/${component}.scss`;
-    output_file = `./dist/${component}.css`;
+    input_file = `./src/${component}/scss/main.scss`;
+    output_file = `./dist/${component.toLowerCase()}.main.css`;
   }
 
   console.log(`${input_file} → ${output_file}...`);

@@ -39,21 +39,24 @@ export const setConsentControlCookie = (
 }
 
 /**
- * Get values from Cookie
+ * Get values from Cookie or test if "test" is in it
  * @returns {Array}
  */
-export const getConsentControlCookie = (
-   cookieName = window.ConsentControl.cookieName || 'privacyconsent'
-) => {
-   var name = cookieName + '='
-   var ca = document.cookie.split(';')
-   for (var i = 0; i < ca.length; i++) {
-      var c = ca[i]
+export const getConsentControlCookie = ( test ) => {
+   let cookieName = window.ConsentControl.cookieName || 'privacyconsent'
+   cookieName = cookieName + '='
+   const ca = document.cookie.split(';')
+   for (let i = 0; i < ca.length; i++) {
+      let c = ca[i]
       while (c.charAt(0) == ' ') {
          c = c.substring(1)
       }
-      if (c.indexOf(name) == 0) {
-         return c.substring(name.length, c.length).split('|')
+      if (c.indexOf(cookieName) == 0) {
+         const values = c.substring(cookieName.length, c.length).split('|')
+         if ( test ) {
+            return values.includes(test)
+         }
+         return values
       }
    }
    return false
