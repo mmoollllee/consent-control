@@ -2,27 +2,28 @@ import { extend, toLocation, template, getConsentControlCookie } from '../lib/in
 
 import { defaults } from './defaults'
 
-window.ConsentMessage = {
+const ConsentMessage = {
    callbacks: {}
-};
-const self = window.ConsentMessage;
+}
 
-export const ConsentMessage = (consent, options = {}, target, srcName, callback = () => {
+const self = ConsentMessage;
+
+self.new = (consent, target, options = {}, srcName, callback = () => {
    target.setAttribute('src', target.getAttribute('data-src'));
    removeConsentMessage(target)
 }) => {
    self.options = extend(true, defaults, options)
 
-   self.status = [];
-
+   // if consent is already given, else bind callback to target
    if (consent && getConsentControlCookie(consent)) {
       callback()
       removeConsentMessage(target)
       return
    } else {
-      self.callbacks[target] = function() {
+      target.callback = function() {
          callback()
          removeConsentMessage(target)
+         delete target.callback
       }
    }
 
@@ -52,16 +53,21 @@ export const ConsentMessage = (consent, options = {}, target, srcName, callback 
    }
 
    // bind callback event
-   wrapper.querySelector('button.confirm').addEventListener('click', self.runConsentMessageCallback(consent));
-
+   wrapper.querySelector('button.confirm').addEventListener('click', () => target.callback());
+   
+   // add target to consent groups' instances
+   if ( !self.callbacks[consent] ) {
+      self.callbacks[consent] = []
+   }
+   self.callbacks[consent].push(target)
 }
 
-self.runConsentMessageCallback = (target) => {
-   console.log(target)
+self.remove = (consent) => {
+   const targets = self.callbacks[consent] || []
+   targets.forEach((e) => {
+      e.callback()
+   })
 }
-
-window.ConsentMessage = extend(true, window.ConsentMessage, ConsentMessage);
-
 
 const removeConsentMessage = (target) => {
    if (target.tagName === 'IFRAME') {
@@ -72,3 +78,5 @@ const removeConsentMessage = (target) => {
       messageDiv.remove()
    }
 }
+
+export {ConsentMessage}

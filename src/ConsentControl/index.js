@@ -2,38 +2,39 @@ import { extend, getConsentControlCookie, setConsentControlCookie, template } fr
 
 import { defaults } from './defaults'
 
-window.ConsentControl = {};
-const self = window.ConsentControl;
+const ConsentControl = {
+   options: {}
+}
 
-export const ConsentControl = (options = {}) => {
+const self = ConsentControl
+
+self.init = (options = {}) => {
    self.options = extend(true, defaults, options)
-
    self.status = [];
 
    // Bind Event to Control Button on Privacy Page
    document.querySelectorAll(".consent-control--open").forEach(function(e) {
       e.addEventListener('click', (e) => {
          e.preventDefault();
-         window.ConsentControl.show()
+         self.show()
       });
    });
 
    // Show Cookie
-   if (!getConsentControlCookie()) {
-      window.ConsentControl.show()
+   if (getConsentControlCookie()) {
+      runServices();
+   } else {
+      self.show()
    }
-   runServices();
-
 }
 
-window.ConsentControl = ConsentControl;
 
 /**
  * Initalise or (re-)open the Consent Control Banner with saved preferences if available
  */
-window.ConsentControl.show = () => {
+self.show = () => {
    const cookie = getConsentControlCookie();
-   self.El = document.getElementById('#consent-control-banner');
+   self.El = document.querySelector('#consent-control-banner');
    // if there is no Banner yet
    if (!self.status.includes('initialized')) {
       self.El = initConsentControlBanner()
@@ -49,7 +50,7 @@ window.ConsentControl.show = () => {
          })
       })
    }
-
+   
    self.El.classList.remove('hide')
 }
 
@@ -58,7 +59,7 @@ window.ConsentControl.show = () => {
  */
 const initConsentControlBanner = () => {
    const parentEl = self.options.parentEl || document.body
-
+   
    // Container
    let container = parentEl.querySelector('#consent-control-banner')
    if (!container) {
@@ -160,9 +161,6 @@ const initConsentControlBanner = () => {
       submitButton = container.querySelector('#consent-control--submit')
    }
 
-   // Add class name for <html> element
-   document.documentElement.classList.add('with-consentControl')
-
    self.status.push("initialized");
 
    return container
@@ -228,6 +226,8 @@ const aliveConsentControlBanner = () => {
          deleteAllCookies();
       });
    });
+
+   self.status.push("events");
 }
 
 /**
@@ -244,6 +244,10 @@ function runServices() {
       if (typeof self.options.switches[i].callback === 'function') {
          self.options.switches[i].callback()
       }
+      ConsentMessage && ConsentMessage.remove(i)
    })
 
+   self.status.push("run");
 }
+
+export {ConsentControl}

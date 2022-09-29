@@ -51,7 +51,24 @@
    <script src="../dist/bundle.min.js"></script>
    <script>
       window.onload = function() {
-         ConsentControl({
+         const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')
+         iframes.forEach((element) => {
+            ConsentMessage.new(
+               'functional',
+               element,
+               {
+                  template: {
+                     main: `<div class="consent-message"><button class="confirm btn btn-primary">Play-Icon</button><p class="mt-1 text-muted">{message}</p></div>`,
+                  },
+               }
+            )
+         })
+
+         ConsentMessage.new('functional', document.querySelector("#map"), { template: false }, null , function() {
+            initMap()
+         })
+
+         ConsentControl.init({
             strings: {
                mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a
          href="#">Datenschutzbestimmungen</a> <a href="#">Impressum</a>`
@@ -132,26 +149,11 @@
                      description:
                         'Bindet Videos von Vimeo in die Webseite ein',
                   }
-               ]
+               ],
+               callback: function() {
+               }
             }
             }
-         })
-      
-         const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')
-         iframes.forEach((element) => {
-            ConsentMessage(
-               'functional',
-               {
-                  template: {
-                     main: `<div class="consent-message"><button class="confirm btn btn-primary">Play-Icon</button><p class="mt-1 text-muted">{message}</p></div>`,
-                  },
-               },
-               element
-            )
-         })
-
-         ConsentMessage('functional', { template: false } ,document.querySelector("#map"), null , function() {
-            initMap()
          })
       }
 
