@@ -2,8 +2,9 @@
 
 Consent Control gives the user full control before loading various assets, analytic tools or external services like Embedded Videos, Maps,...
 
-Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a consent banner like this. <a href="#">See solution here</a></p>
+Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a consent banner like this.
 
+[See demo](https://mmoollllee.github.io/consent-message/)
 
 ## Usage
 
