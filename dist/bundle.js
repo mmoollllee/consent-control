@@ -132,11 +132,68 @@
      return false
   };
 
-  const template = (self, name) => {
-     return self.options.template[name].replace(
+  /**
+   * Delete all Cookies from this page
+   */
+  const deleteAllCookies$1 = () => {
+     var cookies = document.cookie.split('; ');
+     for (var c = 0; c < cookies.length; c++) {
+        var d = window.location.hostname.split('.');
+        while (d.length > 0) {
+           var cookieBase =
+              encodeURIComponent(cookies[c].split(';')[0].split('=')[0]) +
+              '=; expires=Thu, 01-Jan-1970 00:00:01 GMT; domain=' +
+              d.join('.') +
+              ' ;path=';
+           var p = location.pathname.split('/');
+           document.cookie = cookieBase + '/';
+           while (p.length > 0) {
+              document.cookie = cookieBase + p.join('/');
+              p.pop();
+           }
+           d.shift();
+        }
+     }
+     window.localStorage.clear();
+     alert(window.ConsentControl.options.template.strings.resetMessage);
+  };
+
+  const template = (self, name, key, values, child) => {
+     let template = self.options.template[name];
+     if (values) {
+        template = template.replace(/{\w+}/g, (x) => values[x.substring(1, x.length - 1)] || x);
+     }
+     if (key) {
+        template = template.replace(/{\w+}/g, (x) => (x == '{key}' ? key : x));
+     }
+     if (child) {
+        template = template.replace(/{\w+}/g, (x) => child[x.substring(1, x.length - 1)] || x);
+     }
+     template = template.replace(
         /{\w+}/g,
         (x) => self.options.template.strings[x.substring(1, x.length - 1)] || x
-     )
+     );
+     return template
+  };
+
+  const loadScript = (src, callback) => {
+     var s,
+         r,
+         t;
+     r = false;
+     s = document.createElement('script');
+     s.type = 'text/javascript';
+     s.src = src;
+     s.onload = s.onreadystatechange = function() {
+       //console.log( this.readyState ); //uncomment this line to see which ready states are called.
+       if ( !r && (!this.readyState || this.readyState == 'complete') )
+       {
+         r = true;
+         callback();
+       }
+     };
+     t = document.getElementsByTagName('script')[0];
+     t.parentNode.insertBefore(s, t);
   };
 
   const defaults$1 = {
@@ -159,47 +216,25 @@
         },
 
         // Main container element. Needs #consent-control-banner
-        main: function () {
-           return `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
-         </div>`.replace(
-              /{\w+}/g,
-              (x) => this.strings[x.substring(1, x.length - 1)] || x
-           )
-        },
+        main: `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
+         </div>`,
 
         headerEl: 'header',
         // Header default markup needs to have a button.consent-control--open
-        header: function () {
-           return `<h3>{mainTitle}</h3>
+        header: `<h3>{mainTitle}</h3>
          <p>{mainDescription}</p>
-         <button class="collapsed-only consent-control--open">{settingsButtonLabel}</button>`.replace(
-              /{\w+}/g,
-              (x) => this.strings[x.substring(1, x.length - 1)] || x
-           )
-        },
+         <button class="collapsed-only consent-control--open">{settingsButtonLabel}</button>`,
 
-        switches: function () {
-           return `<div class="switches"></div>`
-        },
-        switch: function (key, values) {
-           return `<div class="form-check form-switch">
+        switches: `<div class="switches"></div>`,
+        switch: `<div class="form-check form-switch">
           <input id="consent-{key}" value="{key}" class="form-check-input" type="checkbox" role="switch">
           <label for="consent-{key}" class="form-check-label">{label}</label>
-        </div>`
-              .replace(
-                 /{\w+}/g,
-                 (x) => values[x.substring(1, x.length - 1)] || x
-              )
-              .replace(/{\w+}/g, (x) => (x == '{key}' ? key : x))
-        },
-        switchChild: function (child) {
-           return `<li>
+        </div>`,
+        switchChild: `<li>
             <h4>{label}</h4>
-          </li>`.replace(/{\w+}/g, (x) => child[x.substring(1, x.length - 1)] || x)
-        },
+          </li>`,
 
-        footer: function() {
-           return `
+        footer: `
          <div class="uncollapsed-only">
              <button class="consent-control--reset">{resetButtonLabel}</button>
          </div>
@@ -207,47 +242,45 @@
              <button class="secondary uncollapsed-only consent-control--close">{closeButtonLabel}</button>
              <button id="consent-control--submit">{okButtonLabel}</button>
              <button id="consent-control--submit-all">{allButtonLabel}</button>
-         </div>`.replace(
-              /{\w+}/g,
-              (x) => this.strings[x.substring(1, x.length - 1)] || x
-           )
-        }
+         </div>`
      },
 
      switches: {},
   };
 
-  window.ConsentControl = {};
-  const self$1 = window.ConsentControl;
-  exports.ConsentControl = exports.ConsentControl();
+  const ConsentControl = {
+     options: {}
+  };
 
-  exports.ConsentControl = (options = {}) => {
+  const self$1 = ConsentControl;
+
+  self$1.init = (options = {}) => {
      self$1.options = extend(true, defaults$1, options);
-
      self$1.status = [];
 
      // Bind Event to Control Button on Privacy Page
      document.querySelectorAll(".consent-control--open").forEach(function(e) {
         e.addEventListener('click', (e) => {
            e.preventDefault();
-           window.ConsentControl.show();
+           self$1.show();
         });
      });
 
      // Show Cookie
-     if (!getConsentControlCookie()) {
-        window.ConsentControl.show();
+     if (getConsentControlCookie()) {
+        runServices();
+     } else {
+        self$1.show();
      }
-     runServices();
-
   };
+
 
   /**
    * Initalise or (re-)open the Consent Control Banner with saved preferences if available
    */
-  window.ConsentControl.show = () => {
+  self$1.show = () => {
      const cookie = getConsentControlCookie();
-     self$1.El = document.getElementById('#consent-control-banner');
+     self$1.El = document.querySelector('#consent-control-banner');
      // if there is no Banner yet
      if (!self$1.status.includes('initialized')) {
         self$1.El = initConsentControlBanner();
@@ -263,7 +296,7 @@
            });
         });
      }
-
+     
      self$1.El.classList.remove('hide');
   };
 
@@ -272,13 +305,13 @@
    */
   const initConsentControlBanner = () => {
      const parentEl = self$1.options.parentEl || document.body;
-
+     
      // Container
      let container = parentEl.querySelector('#consent-control-banner');
      if (!container) {
         parentEl.insertAdjacentHTML(
            'beforeend',
-           self$1.options.template.main()
+           template(self$1, 'main')
         );
         container = parentEl.querySelector('#consent-control-banner');
      }
@@ -297,7 +330,7 @@
         const header = document.createElement(
            self$1.options.template.headerEl
         );
-        header.innerHTML = self$1.options.template.header();
+        header.innerHTML = template(self$1, 'header');
         container.appendChild(header);
         openButton = header.querySelector('.consent-control--open');
      }
@@ -308,7 +341,7 @@
      if (!switches) {
         container.insertAdjacentHTML(
            'beforeend',
-           self$1.options.template.switches()
+           template(self$1, 'switches')
         );
         switches = container.querySelector('.switches');
 
@@ -318,7 +351,7 @@
         )) {
            switches.insertAdjacentHTML(
               'beforeend',
-              self$1.options.template.switch(key, item)
+              template(self$1, 'switch', key, item)
            );
 
            const itemEl = switches.lastElementChild;
@@ -348,7 +381,7 @@
               for (const [key, child] of Object.entries(item.childs)) {
                  childsEl.insertAdjacentHTML(
                     'beforeend',
-                    self$1.options.template.switchChild(child)
+                    template(self$1, 'switchChild', false, false, child)
                  );
 
                  const childEl = childsEl.lastElementChild;
@@ -369,13 +402,10 @@
      if (!submitButton) {
         container.insertAdjacentHTML(
            'beforeend',
-           self$1.options.template.footer()
+           template(self$1, 'footer')
         );
         submitButton = container.querySelector('#consent-control--submit');
      }
-
-     // Add class name for <html> element
-     document.documentElement.classList.add('with-consentControl');
 
      self$1.status.push("initialized");
 
@@ -442,6 +472,8 @@
            deleteAllCookies();
         });
      });
+
+     self$1.status.push("events");
   };
 
   /**
@@ -458,29 +490,11 @@
         if (typeof self$1.options.switches[i].callback === 'function') {
            self$1.options.switches[i].callback();
         }
+        ConsentMessage && ConsentMessage.remove(i);
      });
 
+     self$1.status.push("run");
   }
-
-  const loadScript = (src, callback) => {
-     var s,
-         r,
-         t;
-     r = false;
-     s = document.createElement('script');
-     s.type = 'text/javascript';
-     s.src = src;
-     s.onload = s.onreadystatechange = function() {
-       //console.log( this.readyState ); //uncomment this line to see which ready states are called.
-       if ( !r && (!this.readyState || this.readyState == 'complete') )
-       {
-         r = true;
-         callback();
-       }
-     };
-     t = document.getElementsByTagName('script')[0];
-     t.parentNode.insertBefore(s, t);
-  };
 
   const defaults = {
      
@@ -494,20 +508,29 @@
      }
   };
 
-  window.ConsentMessage = {};
-  const self = window.ConsentMessage;
+  const ConsentMessage$1 = {
+     callbacks: {}
+  };
 
-  const ConsentMessage = (consent, options = {}, target, srcName, callback = () => {
+  const self = ConsentMessage$1;
+
+  self.new = (consent, target, options = {}, srcName, callback = () => {
      target.setAttribute('src', target.getAttribute('data-src'));
      removeConsentMessage(target);
   }) => {
      self.options = extend(true, defaults, options);
 
-     self.status = [];
-
+     // if consent is already given, else bind callback to target
      if (consent && getConsentControlCookie(consent)) {
         callback();
+        removeConsentMessage(target);
         return
+     } else {
+        target.callback = function() {
+           callback();
+           removeConsentMessage(target);
+           delete target.callback;
+        };
      }
 
      // Get srcName
@@ -516,26 +539,40 @@
         srcName = target.getAttribute('data-src-name') ?? toLocation(src).hostname;
      }
 
-     // Wrap target with .privacy--wrapper if it's an iframe
      let wrapper = target;
-     if (target.tagName === 'IFRAME') {
-        wrapper = document.createElement('div');
-        wrapper.classList.add('consent-message--wrapper');
-        target.parentNode.insertBefore(wrapper, target);
-        wrapper.appendChild(target);
+     if (self.options.template) {
+        // Wrap target with .privacy--wrapper if it's an iframe
+        if (target.tagName === 'IFRAME') {
+           wrapper = document.createElement('div');
+           wrapper.classList.add('consent-message--wrapper');
+           target.parentNode.insertBefore(wrapper, target);
+           wrapper.appendChild(target);
+        }
+
+        // Insert .consent-message with button.confirm
+        wrapper.insertAdjacentHTML(
+           'afterbegin',
+           template(self, 'main').replace(
+              /{\w+}/g, srcName
+           )
+        );
      }
 
-     // Insert .consent-message with button.confirm
-     wrapper.insertAdjacentHTML(
-        'afterbegin',
-        template(self, 'main').replace(
-           /{\w+}/g, srcName
-        )
-     );
-
      // bind callback event
-     wrapper.querySelector('button.confirm').addEventListener('click', callback);
+     wrapper.querySelector('button.confirm').addEventListener('click', () => target.callback());
+     
+     // add target to consent groups' instances
+     if ( !self.callbacks[consent] ) {
+        self.callbacks[consent] = [];
+     }
+     self.callbacks[consent].push(target);
+  };
 
+  self.remove = (consent) => {
+     const targets = self.callbacks[consent] || [];
+     targets.forEach((e) => {
+        e.callback();
+     });
   };
 
   const removeConsentMessage = (target) => {
@@ -548,7 +585,15 @@
      }
   };
 
-  exports.ConsentMessage = ConsentMessage;
+  window.deleteAllCookies = deleteAllCookies$1;
+  window.loadScript = loadScript;
+  window.getConsentControlCookie = getConsentControlCookie;
+  window.ConsentControl = ConsentControl;
+  window.ConsentMessage = ConsentMessage$1;
+
+  exports.ConsentControl = ConsentControl;
+  exports.ConsentMessage = ConsentMessage$1;
+  exports.deleteAllCookies = deleteAllCookies$1;
   exports.getConsentControlCookie = getConsentControlCookie;
   exports.loadScript = loadScript;
 

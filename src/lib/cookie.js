@@ -85,5 +85,5 @@ export const deleteAllCookies = () => {
       }
    }
    window.localStorage.clear()
-   alert(window.ConsentControl.strings.resetMessage)
+   alert(window.ConsentControl.options.template.strings.resetMessage)
 }
