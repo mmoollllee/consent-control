@@ -29,7 +29,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/mmoollllee/consent-message.git"
+    "url": "git+ssh://git@github.com/mmoollllee/consent-control.git"
   },
   "keywords": [
     "cookie",
@@ -40,9 +40,9 @@
   "author": "Moritz Graf",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mmoollllee/consent-message/issues"
+    "url": "https://github.com/mmoollllee/consent-control/issues"
   },
-  "homepage": "https://github.com/mmoollllee/consent-message#readme",
+  "homepage": "https://github.com/mmoollllee/consent-control#readme",
   "devDependencies": {
     "@babel/core": "^7.17.10",
     "@babel/preset-env": "^7.17.10",

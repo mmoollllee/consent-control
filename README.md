@@ -4,7 +4,7 @@ Consent Control gives the user full control before loading various assets, analy
 
 Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a consent banner like this.
 
-[See demo](https://mmoollllee.github.io/consent-message/)
+[See demo](https://mmoollllee.github.io/consent-control/)
 
 ## Usage
 
