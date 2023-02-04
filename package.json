@@ -1,6 +1,6 @@
 {
   "name": "consent-control",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Consent external sources, cookies, analytics,... with user-centered design",
   "main": "dist/bundle.min.js",
   "module": "dist/bundle.es.js",
