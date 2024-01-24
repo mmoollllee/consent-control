@@ -122,14 +122,45 @@ import { getConsentControlCookie } from "consent-control"
    const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')
    
    iframes.forEach((e) => {
-      ConsentMessage(
+      ConsentMessage.new(
          'functional',
+         e,
          {
             template: {
                main: `<div class="consent-message"><button class="confirm play-button"></button><p>{message}</p></div>`,
             },
-         },
-         e
+         }
       )
    })
+```
+
+You might also use it with Laravel & AlpineJS:
+```blade
+   <div 
+      class="flex items-center mt-5 rounded-md consent-message--wrapper"
+      x-init="
+         $nextTick(() => { 
+            window.ConsentMessage.new(
+               'functional',
+               $el
+               )
+         })
+      "
+   >
+      <div class="max-w-lg rounded-lg consent-message scale">
+         <button class="confirm">
+            @svg('play', 'text-primary w-12 h-12 my-3 transition duration-300 hover:scale-125')
+         </button>
+         <p>Dieses Video wird von <i class="consent-message--source">www.youtube-nocookie.com</i> geladen.<br>Durch das Abspielen werden Daten wie z.B. Ihre IP-Adresse an den externen Server übertragen. Weitere Informationen entnehmen Sie bitte unserer <a href="{{ route('datenschutz')}} " wire:navigate title="Datenschutzerklärung lesen">Datenschutzerklärung</a>.</p>
+      </div>
+      <iframe 
+         width="560"
+         class="w-full"
+         height="315"
+         data-src="https://www.youtube-nocookie.com/embed/_bgy53RBCSk?si=-W9-4ZiJpC-iq0rI"
+         title="YouTube video player"
+         frameborder="0"
+         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen 
+      ></iframe>
+   </div>
 ```

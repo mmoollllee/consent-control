@@ -8,10 +8,17 @@ const ConsentMessage = {
 
 const self = ConsentMessage;
 
-self.new = (consent, target, options = {}, srcName, callback = () => {
-   target.setAttribute('src', target.getAttribute('data-src'));
-   removeConsentMessage(target)
-}) => {
+self.new = (
+   consent, 
+   target, 
+   options = {}, 
+   srcName, 
+   callback = () => {
+      target = target.tagName === 'IFRAME' ? target : target.querySelector('iframe');
+      target.setAttribute('src', target.getAttribute('data-src'));
+      removeConsentMessage(target)
+   }
+) => {
    self.options = extend(true, defaults, options)
 
    // if consent is already given, else bind callback to target
@@ -43,13 +50,15 @@ self.new = (consent, target, options = {}, srcName, callback = () => {
          wrapper.appendChild(target);
       }
 
-      // Insert .consent-message with button.confirm
-      wrapper.insertAdjacentHTML(
-         'afterbegin',
-         template(self, 'main').replace(
-            /{\w+}/g, srcName
+      if (!wrapper.querySelector('.consent-message')) {
+         // Insert .consent-message with button.confirm
+         wrapper.insertAdjacentHTML(
+            'afterbegin',
+            template(self, 'main').replace(
+               /{\w+}/g, srcName
+            )
          )
-      )
+      }
    }
 
    // bind callback event
