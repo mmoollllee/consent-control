@@ -487,7 +487,8 @@
      }
      
      cookie.forEach((i) => {
-        if (typeof self$1.options.switches[i].callback === 'function') {
+        if (self$1.options.switches[i] &&
+           typeof self$1.options.switches[i].callback === 'function') {
            self$1.options.switches[i].callback();
         }
         ConsentMessage && ConsentMessage.remove(i);

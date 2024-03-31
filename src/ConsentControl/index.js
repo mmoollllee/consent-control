@@ -241,7 +241,8 @@ function runServices() {
    }
    
    cookie.forEach((i) => {
-      if (typeof self.options.switches[i].callback === 'function') {
+      if (self.options.switches[i] &&
+         typeof self.options.switches[i].callback === 'function') {
          self.options.switches[i].callback()
       }
       ConsentMessage && ConsentMessage.remove(i)
