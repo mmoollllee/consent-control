@@ -1,6 +1,9 @@
 # Consent Control
 
-Consent Control gives the user full control before loading various assets, analytic tools or external services like Embedded Videos, Maps,...
+[![npm version](https://badge.fury.io/js/consent-control.svg)](https://badge.fury.io/js/consent-control)
+
+Consent Control gives the website visitor full control before loading various assets, analytic tools or external services like Embedded Videos, Maps,...
+Without too much distraction. And fully customizable.
 
 Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a consent banner like this.
 
