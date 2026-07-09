@@ -8,7 +8,7 @@
 export const hideConsentControlButtons = () => {
    const buttons = document.querySelectorAll(".consent-control--open")
    if (!buttons || buttons.length < 1) { return false}
-   buttons.array.forEach(element => {
+   buttons.forEach(element => {
       element.style.display = "none"
    });
 }

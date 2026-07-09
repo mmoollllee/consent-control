@@ -36,8 +36,9 @@ self.new = (
 
    // Get srcName
    if (!srcName) {
-      const src = target.getAttribute('data-src');
-      srcName = target.getAttribute('data-src-name') ?? toLocation(src).hostname;
+      const innerIframe = target.tagName === 'IFRAME' ? target : target.querySelector('iframe');
+      const src = innerIframe ? (innerIframe.getAttribute('data-src') || innerIframe.getAttribute('src')) : target.getAttribute('data-src');
+      srcName = target.getAttribute('data-src-name') ?? (src ? toLocation(src).hostname : '');
    }
 
    let wrapper = target;

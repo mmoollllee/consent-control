@@ -1,69 +1,112 @@
 /**
- * Save a value to the ConsentControl Cookie
- * @param {String || Array} cvalue The value to be toggled
+ * Resolve the configured cookie name. Prefers `ConsentControl.options.cookieName`
+ * (set via ConsentControl.init), with a legacy fallback and the `consentcontrol`
+ * default. Keeps the cookie name consistent across the npm / Laravel / Filament layers.
  */
-export const setConsentControlCookie = (
-   cvalue,
-   cookieName = window.ConsentControl.cookieName || 'privacyconsent'
-) => {
-   var ccurrent = getConsentControlCookie() || []
+const resolveCookieName = () =>
+   (window.ConsentControl && window.ConsentControl.cookieName)
+   || (window.ConsentControl && window.ConsentControl.options && window.ConsentControl.options.cookieName)
+   || 'consentcontrol'
 
-   cvalue = Array.isArray(cvalue) ? cvalue : [cvalue]
-
-   for (var i = 0; i < cvalue.length; i++) {
-      var item = cvalue[i]
-
-      // Get index of current value in current cookie
-      var index = ccurrent.indexOf(item)
-      // and push or splice from ccurrent
-      if (index === -1) {
-         ccurrent.push(item)
-      } else {
-         ccurrent.splice(item, 1)
-      }
-   }
-
-   var domain = window.location.hostname
-   var exdays = 365
-   var d = new Date()
-   d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000)
-   var expires = 'expires=' + d.toUTCString()
-   document.cookie =
-      cookieName +
-      '=' +
-      cvalue.join('|') +
-      ';' +
-      expires +
-      ';path=/;samesite=lax;domain=' +
-      domain
-}
+const cookieOpts = () => (window.ConsentControl && window.ConsentControl.options) || {}
 
 /**
- * Get values from Cookie or test if "test" is in it
- * @returns {Array}
+ * Write a cookie honouring the options provided via ConsentControl.init()
+ * (cookieDays, cookieDomain, cookiePath, cookieSameSite, cookieSecure).
  */
-export const getConsentControlCookie = ( test ) => {
-   let cookieName = window.ConsentControl.cookieName || 'privacyconsent'
-   cookieName = cookieName + '='
+const writeCookie = (name, value) => {
+   const opts = cookieOpts()
+   const exdays = opts.cookieDays || 365
+   const domain = opts.cookieDomain || window.location.hostname
+   const path = opts.cookiePath || '/'
+   const sameSite = opts.cookieSameSite || 'lax'
+
+   const d = new Date()
+   d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000)
+
+   let cookie = name + '=' + value
+      + ';expires=' + d.toUTCString()
+      + ';path=' + path
+      + ';samesite=' + sameSite
+      + ';domain=' + domain
+   if (opts.cookieSecure) {
+      cookie += ';secure'
+   }
+   document.cookie = cookie
+}
+
+const readRawCookie = (name) => {
+   const prefix = name + '='
    const ca = document.cookie.split(';')
    for (let i = 0; i < ca.length; i++) {
       let c = ca[i]
-      while (c.charAt(0) == ' ') {
+      while (c.charAt(0) === ' ') {
          c = c.substring(1)
       }
-      if (c.indexOf(cookieName) == 0) {
-         const values = c.substring(cookieName.length, c.length).split('|')
-         if ( test ) {
-            return values.includes(test)
-         }
-         return values
+      if (c.indexOf(prefix) === 0) {
+         return c.substring(prefix.length)
       }
    }
-   return false
+   return null
 }
 
 /**
- * Delete all Cookies from this page
+ * Save the granted consent categories to the cookie. Also writes a companion
+ * version cookie ({name}-v) when `options.version` is set, so a later version
+ * bump can force a fresh opt-in.
+ * @param {String | Array} cvalue
+ */
+export const setConsentControlCookie = (cvalue, cookieName = resolveCookieName()) => {
+   cvalue = Array.isArray(cvalue) ? cvalue : [cvalue]
+
+   writeCookie(cookieName, cvalue.join('|'))
+
+   const version = cookieOpts().version
+   if (version !== null && version !== undefined) {
+      writeCookie(cookieName + '-v', encodeURIComponent(version))
+   }
+}
+
+/**
+ * Get the granted categories, or test whether `test` is among them.
+ * @returns {Array|Boolean} array of categories, false if no cookie, or boolean when `test` is given
+ */
+export const getConsentControlCookie = (test) => {
+   const raw = readRawCookie(resolveCookieName())
+   if (raw === null) {
+      return test ? false : false
+   }
+   const values = raw === '' ? [] : raw.split('|')
+   if (test) {
+      return values.includes(test)
+   }
+   return values
+}
+
+/**
+ * Read the consent version stored alongside the cookie ({name}-v), or null.
+ */
+export const getConsentVersion = () => {
+   const raw = readRawCookie(resolveCookieName() + '-v')
+   return raw === null ? null : decodeURIComponent(raw)
+}
+
+/**
+ * Expire the consent cookie (and its version companion) on the current domain.
+ */
+export const clearConsentControlCookie = () => {
+   const opts = cookieOpts()
+   const domain = opts.cookieDomain || window.location.hostname
+   const path = opts.cookiePath || '/'
+   const expire = (name) => {
+      document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=' + path + ';domain=' + domain
+   }
+   expire(resolveCookieName())
+   expire(resolveCookieName() + '-v')
+}
+
+/**
+ * Delete all cookies from this page (reset button).
  */
 export const deleteAllCookies = () => {
    var cookies = document.cookie.split('; ')
@@ -85,5 +128,9 @@ export const deleteAllCookies = () => {
       }
    }
    window.localStorage.clear()
-   alert(window.ConsentControl.options.template.strings.resetMessage)
+
+   const strings = (cookieOpts().template && cookieOpts().template.strings) || {}
+   if (strings.resetMessage) {
+      alert(strings.resetMessage)
+   }
 }

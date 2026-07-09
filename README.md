@@ -39,7 +39,7 @@ import { ConsentControl, loadScript } from "consent-control"
 ### Fire
 
 ```js
-ConsentControl({
+ConsentControl.init({
    switches: {
       necessary: {
          disabled: true,
@@ -109,6 +109,107 @@ ConsentControl({
       }
    }
 })
+```
+
+### Optional: "Reject all" button
+
+By default the **OK** button already saves only the pre-checked (minimal) selection, so it
+acts as "reject all" as long as your default config leaves optional switches unchecked.
+If you pre-check optional switches, you can enable an explicit, opt-in reject button:
+
+```js
+ConsentControl.init({
+   rejectButton: true, // adds an "Alle ablehnen" button next to OK
+   switches: { /* ... */ }
+})
+```
+
+It saves only the locked `necessary` categories (`disabled: true`) and rejects everything
+else. Customise the label via `template.strings.noneButtonLabel` and the markup via
+`template.rejectButton`.
+
+### Declarative services (config-driven)
+
+Instead of a `callback` function you can declare services as data — ideal when the
+config comes from a CMS / config file (PHP, WordPress, …) and cannot hold JS closures:
+
+```js
+ConsentControl.init({
+   categories: {            // `switches` still works as an alias
+      analytics: {
+         label: 'Analytics',
+         scripts: [
+            { src: 'https://www.googletagmanager.com/gtag/js?id=G-XXXX', async: true },
+         ],
+         inlineScript: "window.dataLayer = window.dataLayer || []; /* … */",
+      },
+   },
+})
+```
+
+`scripts` are injected once on consent (deduplicated by `src`); `inlineScript` runs once
+inside a `try/catch`. `callback` keeps working and can be combined with both.
+
+### Server-rendered markup (Laravel, WordPress, any framework)
+
+`ConsentControl.init()` binds to an existing `#consent-control-banner` if present, so you
+can render the banner server-side and let the runtime only wire behaviour (no client
+re-render, no flash). Provide these selectors:
+
+| Selector | Role |
+|---|---|
+| `#consent-control-banner` | Container. Start with classes `hide is-collapsed` so it stays hidden when a cookie already exists. |
+| `.switches` › `input[value="{key}"]` | One checkbox per category (`disabled`/`checked` as needed). |
+| `#consent-control--submit` | Save selected ("OK"). |
+| `#consent-control--submit-all` | Allow all. |
+| `#consent-control--submit-none` | Reject all (optional, opt-in). |
+| `.consent-control--open` / `--close` / `--reset` | Reopen / collapse / delete all cookies. |
+| `.collapsed-only` / `.uncollapsed-only` | Visibility helpers. |
+
+When the markup already exists, the matching `template.*` strings are ignored for those
+parts. The same applies to `ConsentMessage` (`.consent-message--wrapper`, `iframe[data-src]`,
+`button.confirm`).
+
+### Consent updated event
+
+Whenever the consent state is applied, a `consent-updated` event is dispatched on `window`:
+
+```js
+window.addEventListener('consent-updated', (e) => {
+   console.log('granted:', e.detail.consents) // e.g. ['necessary','analytics']
+})
+```
+
+### Consent versioning
+
+Force a fresh opt-in when your categories or privacy policy change by setting a `version`.
+When the version stored in the cookie differs, existing consent is cleared and the banner
+re-appears:
+
+```js
+ConsentControl.init({
+   version: 2,        // bump whenever consent must be renewed
+   categories: { /* … */ },
+})
+```
+
+A companion cookie `{cookieName}-v` tracks the granted version. Leave `version` unset
+(default) to disable versioning.
+
+### Block your own `<script>` tags
+
+Mark any script as consent-gated with `type="text/plain"` + `data-consent`. It stays inert
+until the matching category is granted, then it is activated automatically (works for
+external and inline scripts):
+
+```html
+<script type="text/plain" data-consent="analytics"
+        src="https://www.googletagmanager.com/gtag/js?id=G-XXXX"></script>
+
+<script type="text/plain" data-consent="analytics">
+   window.dataLayer = window.dataLayer || [];
+   gtag('config', 'G-XXXX');
+</script>
 ```
 
 ### Check for consent

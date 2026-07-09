@@ -1,8 +1,18 @@
 export const defaults = {
    cookieName: 'consentcontrol',
 
+   // Consent version. Bump to force a fresh opt-in when your categories/policy
+   // change: when the stored version cookie differs, existing consent is reset
+   // and the banner re-appears. Leave null to disable versioning.
+   version: null,
+
    // Element containing main structure
    parentEl: null,
+
+   // Show an optional, explicit "reject all" button. Opt-in: leave false when
+   // your default selection is already minimal (then "OK" already rejects every
+   // optional service). Set true if you pre-check optional switches.
+   rejectButton: false,
 
    template: {
       strings: {
@@ -15,6 +25,7 @@ export const defaults = {
          closeButtonLabel: 'Schließen',
          okButtonLabel: 'OK',
          allButtonLabel: 'Alle erlauben',
+         noneButtonLabel: 'Alle ablehnen',
       },
 
       // Main container element. Needs #consent-control-banner
@@ -44,7 +55,10 @@ export const defaults = {
              <button class="secondary uncollapsed-only consent-control--close">{closeButtonLabel}</button>
              <button id="consent-control--submit">{okButtonLabel}</button>
              <button id="consent-control--submit-all">{allButtonLabel}</button>
-         </div>`
+         </div>`,
+
+      // Markup for the optional reject-all button (enabled via `rejectButton: true`).
+      rejectButton: `<button class="secondary uncollapsed-only consent-control--deny" id="consent-control--submit-none">{noneButtonLabel}</button>`
    },
 
    switches: {},

@@ -69,71 +69,114 @@
   };
 
   /**
-   * Save a value to the ConsentControl Cookie
-   * @param {String || Array} cvalue The value to be toggled
+   * Resolve the configured cookie name. Prefers `ConsentControl.options.cookieName`
+   * (set via ConsentControl.init), with a legacy fallback and the `consentcontrol`
+   * default. Keeps the cookie name consistent across the npm / Laravel / Filament layers.
    */
-  const setConsentControlCookie = (
-     cvalue,
-     cookieName = window.ConsentControl.cookieName || 'privacyconsent'
-  ) => {
-     var ccurrent = getConsentControlCookie() || [];
+  const resolveCookieName = () =>
+     (window.ConsentControl && window.ConsentControl.cookieName)
+     || (window.ConsentControl && window.ConsentControl.options && window.ConsentControl.options.cookieName)
+     || 'consentcontrol';
 
-     cvalue = Array.isArray(cvalue) ? cvalue : [cvalue];
-
-     for (var i = 0; i < cvalue.length; i++) {
-        var item = cvalue[i];
-
-        // Get index of current value in current cookie
-        var index = ccurrent.indexOf(item);
-        // and push or splice from ccurrent
-        if (index === -1) {
-           ccurrent.push(item);
-        } else {
-           ccurrent.splice(item, 1);
-        }
-     }
-
-     var domain = window.location.hostname;
-     var exdays = 365;
-     var d = new Date();
-     d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
-     var expires = 'expires=' + d.toUTCString();
-     document.cookie =
-        cookieName +
-        '=' +
-        cvalue.join('|') +
-        ';' +
-        expires +
-        ';path=/;samesite=lax;domain=' +
-        domain;
-  };
+  const cookieOpts = () => (window.ConsentControl && window.ConsentControl.options) || {};
 
   /**
-   * Get values from Cookie or test if "test" is in it
-   * @returns {Array}
+   * Write a cookie honouring the options provided via ConsentControl.init()
+   * (cookieDays, cookieDomain, cookiePath, cookieSameSite, cookieSecure).
    */
-  const getConsentControlCookie = ( test ) => {
-     let cookieName = window.ConsentControl.cookieName || 'privacyconsent';
-     cookieName = cookieName + '=';
+  const writeCookie = (name, value) => {
+     const opts = cookieOpts();
+     const exdays = opts.cookieDays || 365;
+     const domain = opts.cookieDomain || window.location.hostname;
+     const path = opts.cookiePath || '/';
+     const sameSite = opts.cookieSameSite || 'lax';
+
+     const d = new Date();
+     d.setTime(d.getTime() + exdays * 24 * 60 * 60 * 1000);
+
+     let cookie = name + '=' + value
+        + ';expires=' + d.toUTCString()
+        + ';path=' + path
+        + ';samesite=' + sameSite
+        + ';domain=' + domain;
+     if (opts.cookieSecure) {
+        cookie += ';secure';
+     }
+     document.cookie = cookie;
+  };
+
+  const readRawCookie = (name) => {
+     const prefix = name + '=';
      const ca = document.cookie.split(';');
      for (let i = 0; i < ca.length; i++) {
         let c = ca[i];
-        while (c.charAt(0) == ' ') {
+        while (c.charAt(0) === ' ') {
            c = c.substring(1);
         }
-        if (c.indexOf(cookieName) == 0) {
-           const values = c.substring(cookieName.length, c.length).split('|');
-           if ( test ) {
-              return values.includes(test)
-           }
-           return values
+        if (c.indexOf(prefix) === 0) {
+           return c.substring(prefix.length)
         }
      }
-     return false
+     return null
   };
 
   /**
-   * Delete all Cookies from this page
+   * Save the granted consent categories to the cookie. Also writes a companion
+   * version cookie ({name}-v) when `options.version` is set, so a later version
+   * bump can force a fresh opt-in.
+   * @param {String | Array} cvalue
+   */
+  const setConsentControlCookie = (cvalue, cookieName = resolveCookieName()) => {
+     cvalue = Array.isArray(cvalue) ? cvalue : [cvalue];
+
+     writeCookie(cookieName, cvalue.join('|'));
+
+     const version = cookieOpts().version;
+     if (version !== null && version !== undefined) {
+        writeCookie(cookieName + '-v', encodeURIComponent(version));
+     }
+  };
+
+  /**
+   * Get the granted categories, or test whether `test` is among them.
+   * @returns {Array|Boolean} array of categories, false if no cookie, or boolean when `test` is given
+   */
+  const getConsentControlCookie = (test) => {
+     const raw = readRawCookie(resolveCookieName());
+     if (raw === null) {
+        return test ? false : false
+     }
+     const values = raw === '' ? [] : raw.split('|');
+     if (test) {
+        return values.includes(test)
+     }
+     return values
+  };
+
+  /**
+   * Read the consent version stored alongside the cookie ({name}-v), or null.
+   */
+  const getConsentVersion = () => {
+     const raw = readRawCookie(resolveCookieName() + '-v');
+     return raw === null ? null : decodeURIComponent(raw)
+  };
+
+  /**
+   * Expire the consent cookie (and its version companion) on the current domain.
+   */
+  const clearConsentControlCookie = () => {
+     const opts = cookieOpts();
+     const domain = opts.cookieDomain || window.location.hostname;
+     const path = opts.cookiePath || '/';
+     const expire = (name) => {
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=' + path + ';domain=' + domain;
+     };
+     expire(resolveCookieName());
+     expire(resolveCookieName() + '-v');
+  };
+
+  /**
+   * Delete all cookies from this page (reset button).
    */
   const deleteAllCookies$1 = () => {
      var cookies = document.cookie.split('; ');
@@ -155,7 +198,11 @@
         }
      }
      window.localStorage.clear();
-     alert(window.ConsentControl.options.template.strings.resetMessage);
+
+     const strings = (cookieOpts().template && cookieOpts().template.strings) || {};
+     if (strings.resetMessage) {
+        alert(strings.resetMessage);
+     }
   };
 
   const template = (self, name, key, values, child) => {
@@ -199,8 +246,18 @@
   const defaults$1 = {
      cookieName: 'consentcontrol',
 
+     // Consent version. Bump to force a fresh opt-in when your categories/policy
+     // change: when the stored version cookie differs, existing consent is reset
+     // and the banner re-appears. Leave null to disable versioning.
+     version: null,
+
      // Element containing main structure
      parentEl: null,
+
+     // Show an optional, explicit "reject all" button. Opt-in: leave false when
+     // your default selection is already minimal (then "OK" already rejects every
+     // optional service). Set true if you pre-check optional switches.
+     rejectButton: false,
 
      template: {
         strings: {
@@ -213,6 +270,7 @@
            closeButtonLabel: 'Schließen',
            okButtonLabel: 'OK',
            allButtonLabel: 'Alle erlauben',
+           noneButtonLabel: 'Alle ablehnen',
         },
 
         // Main container element. Needs #consent-control-banner
@@ -242,7 +300,10 @@
              <button class="secondary uncollapsed-only consent-control--close">{closeButtonLabel}</button>
              <button id="consent-control--submit">{okButtonLabel}</button>
              <button id="consent-control--submit-all">{allButtonLabel}</button>
-         </div>`
+         </div>`,
+
+        // Markup for the optional reject-all button (enabled via `rejectButton: true`).
+        rejectButton: `<button class="secondary uncollapsed-only consent-control--deny" id="consent-control--submit-none">{noneButtonLabel}</button>`
      },
 
      switches: {},
@@ -256,6 +317,20 @@
 
   self$1.init = (options = {}) => {
      self$1.options = extend(true, defaults$1, options);
+
+     // Accept `categories`/`children` as preferred aliases for `switches`/`childs`
+     // so PHP/HTML config can use the clearer vocabulary. `switches`/`childs`
+     // remain supported for backwards compatibility.
+     if (self$1.options.categories && Object.keys(self$1.options.switches).length === 0) {
+        self$1.options.switches = self$1.options.categories;
+     }
+     for (const key in self$1.options.switches) {
+        const item = self$1.options.switches[key];
+        if (item && item.children && !item.childs) {
+           item.childs = item.children;
+        }
+     }
+
      self$1.status = [];
 
      // Bind Event to Control Button on Privacy Page
@@ -266,10 +341,19 @@
         });
      });
 
-     // Show Cookie
-     if (getConsentControlCookie()) {
+     // Show the banner unless we have valid consent for the current version.
+     const cookie = getConsentControlCookie();
+     const version = self$1.options.version;
+     const versionOk = (version === null || version === undefined)
+        || String(getConsentVersion()) === String(version);
+
+     if (cookie && cookie.length && versionOk) {
         runServices();
      } else {
+        // Stale consent from an older version → reset it for a fresh opt-in.
+        if (cookie && cookie.length && !versionOk) {
+           clearConsentControlCookie();
+        }
         self$1.show();
      }
   };
@@ -407,6 +491,17 @@
         submitButton = container.querySelector('#consent-control--submit');
      }
 
+     // Optional, opt-in "reject all" button (see `rejectButton` option)
+     if (self$1.options.rejectButton && !container.querySelector('#consent-control--submit-none')) {
+        const rejectMarkup = template(self$1, 'rejectButton');
+        if (submitButton) {
+           submitButton.insertAdjacentHTML('beforebegin', rejectMarkup);
+        } else {
+           const control = container.querySelector('.control') || container;
+           control.insertAdjacentHTML('beforeend', rejectMarkup);
+        }
+     }
+
      self$1.status.push("initialized");
 
      return container
@@ -448,6 +543,28 @@
      });
 
      /**
+      * Bind Event to Reject All Button (optional, opt-in via `rejectButton: true`).
+      * Saves only the locked necessary categories and rejects everything optional.
+      */
+     const denyButton = self$1.El.querySelector("#consent-control--submit-none");
+     if (denyButton) {
+        denyButton.addEventListener('click', (e) => {
+           e.preventDefault();
+           const cookie = [];
+
+           self$1.El.querySelectorAll("input").forEach((i) => {
+              if (i.disabled && i.checked) {
+                 cookie.push(i.value);
+              }
+           });
+
+           setConsentControlCookie(cookie);
+           self$1.El.classList.add("hide", "is-collapsed");
+           runServices();
+        });
+     }
+
+     /**
       * Bind Event to Settings Button
       */
       self$1.El.querySelectorAll(".consent-control--close").forEach(function(e) {
@@ -480,19 +597,73 @@
    * Initalise enabled services
    * @param {Array} ccookie Current Cookie Data with services to be enabled
    */
+  /**
+   * Activate scripts that were blocked until consent:
+   *   <script type="text/plain" data-consent="analytics" src="…"></script>
+   * Re-creates them as real, executable <script> tags. Idempotent (replaced nodes
+   * no longer match the selector).
+   */
+  function activateBlockedScripts(consent) {
+     document.querySelectorAll('script[type="text/plain"][data-consent="' + consent + '"]').forEach((old) => {
+        const s = document.createElement('script');
+        for (let i = 0; i < old.attributes.length; i++) {
+           const attr = old.attributes[i];
+           if (attr.name === 'type' || attr.name === 'data-consent') continue
+           s.setAttribute(attr.name, attr.value);
+        }
+        if (!old.src) {
+           s.text = old.textContent;
+        }
+        old.parentNode.replaceChild(s, old);
+     });
+  }
+
   function runServices() {
      const cookie = getConsentControlCookie();
      if (!cookie) {
         return
      }
      
+     self$1._ran = self$1._ran || {};
+
      cookie.forEach((i) => {
-        if (self$1.options.switches[i] &&
-           typeof self$1.options.switches[i].callback === 'function') {
-           self$1.options.switches[i].callback();
+        const service = self$1.options.switches[i];
+
+        if (service && !self$1._ran[i]) {
+           // Declarative scripts: [{ src, async }] — load external <script> tags.
+           if (Array.isArray(service.scripts)) {
+              service.scripts.forEach((script) => {
+                 if (script && script.src && !document.querySelector('script[src="' + script.src + '"]')) {
+                    loadScript(script.src, () => {});
+                 }
+              });
+           }
+
+           // Declarative inline JavaScript executed once on consent.
+           if (service.inlineScript) {
+              try {
+                 (new Function(service.inlineScript))();
+              } catch (e) {
+                 console.error('[ConsentControl] inlineScript error for "' + i + '":', e);
+              }
+           }
+
+           self$1._ran[i] = true;
         }
+
+        // Imperative callback (backwards compatible).
+        if (service && typeof service.callback === 'function') {
+           service.callback();
+        }
+
+        // Activate any <script type="text/plain" data-consent="…"> tags.
+        activateBlockedScripts(i);
+
         ConsentMessage && ConsentMessage.remove(i);
      });
+
+     // Let consent gates / other listeners react to the current consent state.
+     window.dispatchEvent(new CustomEvent('consent-updated', { detail: { consents: cookie } }));
 
      self$1.status.push("run");
   }
@@ -543,8 +714,9 @@
 
      // Get srcName
      if (!srcName) {
-        const src = target.getAttribute('data-src');
-        srcName = target.getAttribute('data-src-name') ?? toLocation(src).hostname;
+        const innerIframe = target.tagName === 'IFRAME' ? target : target.querySelector('iframe');
+        const src = innerIframe ? (innerIframe.getAttribute('data-src') || innerIframe.getAttribute('src')) : target.getAttribute('data-src');
+        srcName = target.getAttribute('data-src-name') ?? (src ? toLocation(src).hostname : '');
      }
 
      let wrapper = target;
@@ -598,13 +770,17 @@
   window.deleteAllCookies = deleteAllCookies$1;
   window.loadScript = loadScript;
   window.getConsentControlCookie = getConsentControlCookie;
+  window.getConsentVersion = getConsentVersion;
+  window.clearConsentControlCookie = clearConsentControlCookie;
   window.ConsentControl = ConsentControl;
   window.ConsentMessage = ConsentMessage$1;
 
   exports.ConsentControl = ConsentControl;
   exports.ConsentMessage = ConsentMessage$1;
+  exports.clearConsentControlCookie = clearConsentControlCookie;
   exports.deleteAllCookies = deleteAllCookies$1;
   exports.getConsentControlCookie = getConsentControlCookie;
+  exports.getConsentVersion = getConsentVersion;
   exports.loadScript = loadScript;
 
   Object.defineProperty(exports, '__esModule', { value: true });

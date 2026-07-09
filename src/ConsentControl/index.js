@@ -1,4 +1,4 @@
-import { extend, getConsentControlCookie, setConsentControlCookie, template } from '../lib/index'
+import { extend, getConsentControlCookie, setConsentControlCookie, getConsentVersion, clearConsentControlCookie, template, loadScript } from '../lib/index'
 
 import { defaults } from './defaults'
 
@@ -10,6 +10,20 @@ const self = ConsentControl
 
 self.init = (options = {}) => {
    self.options = extend(true, defaults, options)
+
+   // Accept `categories`/`children` as preferred aliases for `switches`/`childs`
+   // so PHP/HTML config can use the clearer vocabulary. `switches`/`childs`
+   // remain supported for backwards compatibility.
+   if (self.options.categories && Object.keys(self.options.switches).length === 0) {
+      self.options.switches = self.options.categories
+   }
+   for (const key in self.options.switches) {
+      const item = self.options.switches[key]
+      if (item && item.children && !item.childs) {
+         item.childs = item.children
+      }
+   }
+
    self.status = [];
 
    // Bind Event to Control Button on Privacy Page
@@ -20,10 +34,19 @@ self.init = (options = {}) => {
       });
    });
 
-   // Show Cookie
-   if (getConsentControlCookie()) {
+   // Show the banner unless we have valid consent for the current version.
+   const cookie = getConsentControlCookie();
+   const version = self.options.version;
+   const versionOk = (version === null || version === undefined)
+      || String(getConsentVersion()) === String(version);
+
+   if (cookie && cookie.length && versionOk) {
       runServices();
    } else {
+      // Stale consent from an older version → reset it for a fresh opt-in.
+      if (cookie && cookie.length && !versionOk) {
+         clearConsentControlCookie();
+      }
       self.show()
    }
 }
@@ -161,6 +184,17 @@ const initConsentControlBanner = () => {
       submitButton = container.querySelector('#consent-control--submit')
    }
 
+   // Optional, opt-in "reject all" button (see `rejectButton` option)
+   if (self.options.rejectButton && !container.querySelector('#consent-control--submit-none')) {
+      const rejectMarkup = template(self, 'rejectButton')
+      if (submitButton) {
+         submitButton.insertAdjacentHTML('beforebegin', rejectMarkup)
+      } else {
+         const control = container.querySelector('.control') || container
+         control.insertAdjacentHTML('beforeend', rejectMarkup)
+      }
+   }
+
    self.status.push("initialized");
 
    return container
@@ -202,6 +236,28 @@ const aliveConsentControlBanner = () => {
    });
 
    /**
+    * Bind Event to Reject All Button (optional, opt-in via `rejectButton: true`).
+    * Saves only the locked necessary categories and rejects everything optional.
+    */
+   const denyButton = self.El.querySelector("#consent-control--submit-none")
+   if (denyButton) {
+      denyButton.addEventListener('click', (e) => {
+         e.preventDefault();
+         const cookie = [];
+
+         self.El.querySelectorAll("input").forEach((i) => {
+            if (i.disabled && i.checked) {
+               cookie.push(i.value)
+            }
+         })
+
+         setConsentControlCookie(cookie);
+         self.El.classList.add("hide", "is-collapsed")
+         runServices();
+      });
+   }
+
+   /**
     * Bind Event to Settings Button
     */
     self.El.querySelectorAll(".consent-control--close").forEach(function(e) {
@@ -234,19 +290,73 @@ const aliveConsentControlBanner = () => {
  * Initalise enabled services
  * @param {Array} ccookie Current Cookie Data with services to be enabled
  */
+/**
+ * Activate scripts that were blocked until consent:
+ *   <script type="text/plain" data-consent="analytics" src="…"></script>
+ * Re-creates them as real, executable <script> tags. Idempotent (replaced nodes
+ * no longer match the selector).
+ */
+function activateBlockedScripts(consent) {
+   document.querySelectorAll('script[type="text/plain"][data-consent="' + consent + '"]').forEach((old) => {
+      const s = document.createElement('script')
+      for (let i = 0; i < old.attributes.length; i++) {
+         const attr = old.attributes[i]
+         if (attr.name === 'type' || attr.name === 'data-consent') continue
+         s.setAttribute(attr.name, attr.value)
+      }
+      if (!old.src) {
+         s.text = old.textContent
+      }
+      old.parentNode.replaceChild(s, old)
+   })
+}
+
 function runServices() {
    const cookie = getConsentControlCookie();
    if (!cookie) {
       return
    }
    
+   self._ran = self._ran || {};
+
    cookie.forEach((i) => {
-      if (self.options.switches[i] &&
-         typeof self.options.switches[i].callback === 'function') {
-         self.options.switches[i].callback()
+      const service = self.options.switches[i];
+
+      if (service && !self._ran[i]) {
+         // Declarative scripts: [{ src, async }] — load external <script> tags.
+         if (Array.isArray(service.scripts)) {
+            service.scripts.forEach((script) => {
+               if (script && script.src && !document.querySelector('script[src="' + script.src + '"]')) {
+                  loadScript(script.src, () => {})
+               }
+            })
+         }
+
+         // Declarative inline JavaScript executed once on consent.
+         if (service.inlineScript) {
+            try {
+               (new Function(service.inlineScript))()
+            } catch (e) {
+               console.error('[ConsentControl] inlineScript error for "' + i + '":', e)
+            }
+         }
+
+         self._ran[i] = true;
       }
+
+      // Imperative callback (backwards compatible).
+      if (service && typeof service.callback === 'function') {
+         service.callback()
+      }
+
+      // Activate any <script type="text/plain" data-consent="…"> tags.
+      activateBlockedScripts(i)
+
       ConsentMessage && ConsentMessage.remove(i)
    })
+
+   // Let consent gates / other listeners react to the current consent state.
+   window.dispatchEvent(new CustomEvent('consent-updated', { detail: { consents: cookie } }))
 
    self.status.push("run");
 }
