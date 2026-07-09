@@ -31,7 +31,7 @@
       <button class="btn btn-secondary consent-control--open">Show Consent Control Preferences</button>
       <div class="row my-5">
          <div class="col-12 col-md-6">
-            <h2>Consent iframes & videos directly</h2>
+            <h2>Consent iframes &amp; videos directly</h2>
             <p>Just use <code>data-src</code> instead</p>
             <iframe data-src-name="Vimeo" data-src="https://player.vimeo.com/video/13038915?h=1e21b30cb2&color=e69705" width="640" height="360" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
          </div>
@@ -43,14 +43,50 @@
             </div>
          </div>
       </div>
-      <h2>Notes</h2>
+
+      <hr class="col-3 col-md-2 my-5">
+      <h1>New in 2.0</h1>
+      <div class="row my-5">
+         <div class="col-12 col-md-6">
+            <h2>Block your own scripts</h2>
+            <p>Mark any tag <code>type="text/plain" data-consent="analytics"</code> — it stays inert until the category is granted, then runs automatically.</p>
+            <p class="p-3 bg-light rounded"><strong>Inline script:</strong> <span id="blocked-script-output">⏸ blocked until “Analytics” is granted</span></p>
+         </div>
+         <div class="col-12 col-md-6">
+            <h2>Live consent state</h2>
+            <p>Kept in sync via the <code>consent-updated</code> window event.</p>
+            <p class="p-3 bg-light rounded"><strong>Granted:</strong> <code id="consent-state">—</code></p>
+         </div>
+      </div>
+      <p class="text-muted">
+         This demo also uses the <code>categories</code>/<code>children</code> vocabulary, an opt-in
+         <strong>“reject all”</strong> button (<code>rejectButton: true</code>), a config-driven
+         <code>analytics</code> service (declarative <code>scripts</code> + <code>inlineScript</code> instead of a callback),
+         and consent <code>version</code>ing. Reopen the banner and toggle <em>Analytics</em> to see it all react.
+      </p>
+
+      <h2 class="mt-5">Notes</h2>
       <h3>If you don't use bootstrap</h3>
       <p>Include <code>consentcontrol.bootstrap.css</code> to make use of the nice switches, or style them as you like</p>
    </div>
 
+   <!-- Consent-gated script: inert until "analytics" is granted, then activated automatically -->
+   <script type="text/plain" data-consent="analytics">
+      var el = document.getElementById('blocked-script-output');
+      el.textContent = '✓ activated after Analytics consent';
+      el.classList.add('text-success', 'fw-bold');
+   </script>
+
    <script src="dist/bundle.min.js"></script>
    <script>
       window.onload = function() {
+         // Live consent state — driven by the new `consent-updated` window event.
+         const consentStateEl = document.getElementById('consent-state')
+         window.addEventListener('consent-updated', function (e) {
+            const granted = (e.detail && e.detail.consents) || []
+            consentStateEl.textContent = granted.length ? granted.join(', ') : '—'
+         })
+
          const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')
          iframes.forEach((element) => {
             ConsentMessage.new(
@@ -69,14 +105,21 @@
          })
 
          ConsentControl.init({
-            strings: {
-               mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a
-         href="#">Datenschutzbestimmungen</a> <a href="#">Impressum</a>`
-            },
+            // Bump `version` whenever categories or your privacy policy change:
+            // stored consent from an older version is cleared and the banner re-appears.
+            version: 1,
+
+            // Opt-in explicit "reject all" button (next to OK).
+            rejectButton: true,
+
             template: {
+               strings: {
+                  mainDescription: `Diese Webseite nutzt Cookies und externe Dienste.<br /><a href="#">Datenschutzbestimmungen</a> <a href="#">Impressum</a>`,
+               },
                header: `<h3>{mainTitle}</h3>
                   <p>{mainDescription}</p>
                   <button class="collapsed-only consent-control--open btn btn-light btn-sm">{settingsButtonLabel}</button>`,
+               rejectButton: `<button class="uncollapsed-only consent-control--deny btn btn-light btn-sm" id="consent-control--submit-none">{noneButtonLabel}</button>`,
                footer: `<div class="uncollapsed-only mb-2">
              <button class="consent-control--reset btn btn-light btn-sm">{resetButtonLabel}</button>
          </div>
@@ -86,73 +129,64 @@
              <button id="consent-control--submit-all" class="btn btn-danger btn-sm">{allButtonLabel}</button>
          </div>`
             },
-            switches: {
+
+            // `categories`/`children` are the preferred aliases for `switches`/`childs`.
+            categories: {
                necessary: {
-               disabled: true,
-               checked: true,
-               label: 'Notwendige',
-               description: 'Stellt die Funktionalität der Website sicher.',
-               childs: [
-                  {
-                     label: 'Seiten-Einstellungen',
-                     description: `Speichert Ihre Einstellungen in diesem Banner, Cookie
-                  <strong>consentbanner</strong> Speicherdauer 1 Jahr`,
-                  },
-                  {
-                     label: 'Schriftarten',
-                     description:
-                        'Lädt die Schriftart "Courier Prime" von externen Servern von Google',
-                  },
+                  disabled: true,
+                  checked: true,
+                  label: 'Notwendige',
+                  description: 'Stellt die Funktionalität der Website sicher.',
+                  children: [
+                     {
+                        label: 'Seiten-Einstellungen',
+                        description: `Speichert Ihre Einstellungen in diesem Banner, Cookie <strong>consentcontrol</strong> Speicherdauer 1 Jahr`,
+                     },
+                     {
+                        label: 'Schriftarten',
+                        description: 'Lädt die Schriftart "Courier Prime" von externen Servern von Google',
+                     },
                   ],
+                  // Imperative callback — still fully supported in 2.0.
                   callback: function() {
                      document.getElementsByTagName("head")[0].insertAdjacentHTML("beforeend","<link href=\"https://fonts.googleapis.com/css2?family=Courier+Prime&display=swap\" rel=\"stylesheet\">");
                   }
                },
-            analytics: {
-               label: 'Analytics',
-               description:
-                  'Erlauben Sie dem Website-Betreiber, das Angebot auf dieser Webseite zu bewerten und zu verbessern.',
-               childs: [
-                  {
-                     label: 'Google Tag Manager',
-                     description: `'UA-123456789-1, Cookie <strong>_ga</strong> Speicherdauer 2 Jahre`,
-                  },
-               ],
-               callback: function() {
-                  var gtm = document.createElement('script');
-                  gtm.type = 'text/javascript';
-                  gtm.async = true;
-                  gtm.src = 'https://www.googletagmanager.com/gtag/js?id=UA-123456789-1';
-                  var s = document.getElementsByTagName('script')[0];
-                  s.parentNode.insertBefore(gtm, s);
-                  window.dataLayer = window.dataLayer || [];
-               
-                  function gtag() {
-                  dataLayer.push(arguments);
-                  }
-                  gtag('js', new Date());
-               
-                  gtag('config', 'UA-123456789-1');
-               }
-            },
-            functional: {
-               label: 'Funktionell',
-               description: 'Funktionen für die Darstellung der Inhalte.',
-               childs: [
-                  {
-                     label: 'Open Street Map',
-                     description:
-                        'Stellt eine Karte mit Routenbeschreibung zur Verfügung und lädt diese von externen Servern von Leaflet und Open Street Map.',
-                  },
-                  {
-                     label: 'Vimeo Videos',
-                     description:
-                        'Bindet Videos von Vimeo in die Webseite ein',
-                  }
-               ],
-               callback: function() {
-               }
-            }
+               analytics: {
+                  label: 'Analytics',
+                  description: 'Erlauben Sie dem Website-Betreiber, das Angebot auf dieser Webseite zu bewerten und zu verbessern.',
+                  children: [
+                     {
+                        label: 'Google Tag Manager',
+                        description: `UA-123456789-1, Cookie <strong>_ga</strong> Speicherdauer 2 Jahre`,
+                     },
+                  ],
+                  // Declarative, config-driven service (new in 2.0): load external
+                  // scripts + run inline setup once on consent — no JS closure needed.
+                  scripts: [
+                     { src: 'https://www.googletagmanager.com/gtag/js?id=UA-123456789-1', async: true },
+                  ],
+                  inlineScript: `
+                     window.dataLayer = window.dataLayer || [];
+                     function gtag(){ dataLayer.push(arguments); }
+                     gtag('js', new Date());
+                     gtag('config', 'UA-123456789-1');
+                  `,
+               },
+               functional: {
+                  label: 'Funktionell',
+                  description: 'Funktionen für die Darstellung der Inhalte.',
+                  children: [
+                     {
+                        label: 'Open Street Map',
+                        description: 'Stellt eine Karte mit Routenbeschreibung zur Verfügung und lädt diese von externen Servern von Leaflet und Open Street Map.',
+                     },
+                     {
+                        label: 'Vimeo Videos',
+                        description: 'Bindet Videos von Vimeo in die Webseite ein',
+                     }
+                  ],
+               },
             }
          })
       }
@@ -165,17 +199,16 @@
                center: [17.385044, 78.486671],
                zoom: 10
             }
-            
+
             // Creating a map object
             var map = new L.map("map", mapOptions);
-            
+
             // Creating a Layer object
             var layer = new L.TileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
-            
+
             // Adding layer to the map
             map.addLayer(layer);
          })
-         // document.querySelector("#map").innerHTML('<p>Lets act as if the map was loaded, okay? This could be a function initMap() instead. I\'m too lazy to get an API key instead. We should all use <a href="https://www.openstreetmap.de/">Open Street Map</a> anyway!')
       }
    </script>
 </body>
