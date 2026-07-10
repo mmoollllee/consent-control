@@ -9,6 +9,18 @@ Note: There are Browser Plugins like i-dont-care-about-cookies.eu that hide a co
 
 [See demo](https://mmoollllee.github.io/consent-control/)
 
+## Which package do I need?
+
+`consent-control` is the framework-agnostic runtime (this package). For server-rendered
+Laravel / Filament apps, install a wrapper instead — it vendors this runtime and adds Blade
+components, config and translations, so you don't wire the JS yourself:
+
+| Environment | Install |
+|---|---|
+| Plain HTML, WordPress, Vite, React, any JS | **`consent-control`** (this package) — see below |
+| Laravel (Blade) | [`laravel-consent-control`](https://github.com/mmoollllee/laravel-consent-control) |
+| Laravel + Filament | [`filament-consent-control`](https://github.com/mmoollllee/filament-consent-control) |
+
 ## Usage
 
 ### Install
@@ -110,6 +122,37 @@ ConsentControl.init({
    }
 })
 ```
+
+### Reopen the banner
+
+Visitors must be able to change their choice later (GDPR). Place a button with the
+`consent-control--open` class anywhere — typically on the privacy policy page. The runtime
+binds every such element on `init()` and reopens the banner with the settings expanded:
+
+```html
+<button type="button" class="consent-control--open">Cookie settings</button>
+```
+
+### Theming
+
+The self-rendered banner reads CSS variables scoped to `#consent-control-banner`. The accent
+**auto-adopts your site's primary colour** when it exposes one (Tailwind `--color-primary` or
+Bootstrap `--bs-primary`); override any variable to brand it:
+
+```css
+#consent-control-banner {
+   --cc-primary: #b91c1c;            /* accent: checked switches, links */
+   --cc-on-primary: #fff;
+   --cc-bg: #fff;                    /* banner surface */
+   --cc-text: #1f2937;               /* body text */
+   --cc-muted: #6b7280;              /* secondary text */
+   --cc-border: rgba(0, 0, 0, .12);  /* dividers */
+   --cc-section: rgba(0, 0, 0, .035);/* switches section background */
+}
+```
+
+Buttons are deliberately left unstyled so they inherit your site's button styling — give them
+your own classes via the `template.footer`/`template.rejectButton` options if needed.
 
 ### Optional: "Reject all" button
 

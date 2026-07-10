@@ -26,11 +26,13 @@ self.init = (options = {}) => {
 
    self.status = [];
 
-   // Bind Event to Control Button on Privacy Page
+   // Bind every .consent-control--open element (e.g. a "cookie settings" button
+   // on the privacy policy page): reopen the banner with the settings expanded.
    document.querySelectorAll(".consent-control--open").forEach(function(e) {
       e.addEventListener('click', (e) => {
          e.preventDefault();
          self.show()
+         self.El && self.El.classList.remove('is-collapsed')
       });
    });
 

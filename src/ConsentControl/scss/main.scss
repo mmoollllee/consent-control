@@ -1,4 +1,15 @@
 #consent-control-banner {
+   /* Theme tokens. The accent auto-adopts the host's primary colour when it
+      exposes one (Tailwind `--color-primary` or Bootstrap `--bs-primary`);
+      override any --cc-* variable to brand the banner. */
+   --cc-primary: var(--color-primary, var(--bs-primary, #2b776a));
+   --cc-on-primary: #fff;
+   --cc-bg: #fff;
+   --cc-text: #1f2937;
+   --cc-muted: #6b7280;
+   --cc-border: rgba(0, 0, 0, .12);
+   --cc-section: rgba(0, 0, 0, .035);
+
    max-height: 100vh;
    overflow: auto;
    position: fixed;
@@ -7,17 +18,18 @@
    right: 0;
    width: 100%;
    max-width: 400px;
-   box-shadow: 0 0 20px -7px rgba(0, 0, 0, .3);
+   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, .1), 0 4px 6px -4px rgba(0, 0, 0, .1);
    text-align: center;
    padding: 1em;
    font-size: 0.9em;
    border-radius: 5px;
    margin: 0;
-   background: #fafafa;
+   background: var(--cc-bg);
+   color: var(--cc-text);
+   transition: transform 0.45s ease, opacity 0.45s ease;
 
-   &,
-   * {
-      transition: all 0.6s !important;
+   &.hide {
+      opacity: 0;
    }
 
    &.hide.is-collapsed {
@@ -56,9 +68,43 @@
 
    a {
       white-space: nowrap;
+      color: var(--cc-primary);
+   }
+
+   /* The OK / Close / Allow-all buttons carry .btn / .btn-primary / .btn-secondary
+      so they adopt the host project's button component (Bootstrap, a Tailwind
+      component layer, …). The package deliberately ships NO styling for them — an
+      unlayered rule here would beat a project's @layer .btn and break the theme.
+      Only settings + reset stay plain text links (never .btn). */
+   .consent-control--open,
+   .consent-control--reset {
+      cursor: pointer;
+      border: 0;
+      background: none;
+      padding: 0.2em;
+      color: var(--cc-muted);
+      font-size: 0.85em;
+      text-decoration: underline;
+   }
+
+   .description {
+      font-size: 0.85em;
+      color: var(--cc-muted);
+      font-weight: 400;
+   }
+
+   .control {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4em;
+      justify-content: center;
+      align-items: center;
    }
 
    .switches {
+      background: var(--cc-section);
+      border-radius: 6px;
+      padding: 0.25em 1em;
 
       input, label {
          cursor: pointer;
@@ -75,14 +121,14 @@
       }
 
       .form-check {
-         border-bottom: 1px solid #fff;
+         border-bottom: 1px solid var(--cc-border);
          padding-top: 1em;
          padding-bottom: .5em;
          padding-left: 0;
 
          &>label {
-            font-weight: 600;
-            font-size: 1.2em;
+            font-weight: 500;
+            font-size: 1em;
             line-height: 1.4;
          }
 
