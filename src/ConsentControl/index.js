@@ -75,7 +75,16 @@ self.show = () => {
          })
       })
    }
-   
+
+   // Server-rendered banners ship with an inline display:none so they can
+   // never flash before CSS/JS load. Visibility is JS-only: clear the inline
+   // style here, with a reflow in between so the `hide` transition still
+   // slides the banner in.
+   if (self.El.style.display === 'none') {
+      self.El.style.removeProperty('display')
+      void self.El.offsetWidth
+   }
+
    self.El.classList.remove('hide')
 }
 
