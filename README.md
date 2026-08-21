@@ -264,6 +264,26 @@ import { getConsentControlCookie } from "consent-control"
    }
 ```
 
+### Grant consent without the banner
+
+Clients that must not show a banner — a native shell (Tauri, Electron), a kiosk
+display — can write the consent cookie directly. This is the same function the
+banner's own OK / "allow all" buttons use, so it honours `cookieDays`,
+`cookieDomain`, `cookiePath`, `cookieSameSite` and `cookieSecure` and keeps the
+`{cookieName}-v` version cookie in sync:
+
+```js
+import { ConsentControl, setConsentControlCookie } from "consent-control"
+
+// Pin the cookie name up front when init() is never called, so reads resolve
+// to the same cookie this writes.
+ConsentControl.cookieName = 'privacyconsent'
+
+setConsentControlCookie(['necessary', 'functional'])
+```
+
+Pass the name explicitly as a second argument to target a different cookie.
+
 ### Show Consent Message for iframes
 ```js
    const iframes = document.querySelectorAll('iframe[data-src][data-src-name="Vimeo"]')

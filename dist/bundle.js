@@ -781,6 +781,7 @@
   window.deleteAllCookies = deleteAllCookies$1;
   window.loadScript = loadScript;
   window.getConsentControlCookie = getConsentControlCookie;
+  window.setConsentControlCookie = setConsentControlCookie;
   window.getConsentVersion = getConsentVersion;
   window.clearConsentControlCookie = clearConsentControlCookie;
   window.ConsentControl = ConsentControl;
@@ -793,6 +794,7 @@
   exports.getConsentControlCookie = getConsentControlCookie;
   exports.getConsentVersion = getConsentVersion;
   exports.loadScript = loadScript;
+  exports.setConsentControlCookie = setConsentControlCookie;
 
   Object.defineProperty(exports, '__esModule', { value: true });
 
