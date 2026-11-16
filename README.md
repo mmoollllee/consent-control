@@ -41,6 +41,8 @@ components, config and translations, so you don't wire the JS yourself:
 import { ConsentControl, loadScript } from "consent-control"
 ```
 
+The bundles target current browsers (ES2020) and are not transpiled.
+
 ```scss
 // Obsolete if you use Bootstrap
 @import "~consent-control/dist/consentcontrol.bootstrap.css";
@@ -133,6 +135,28 @@ binds every such element on `init()` and reopens the banner with the settings ex
 <button type="button" class="consent-control--open">Cookie settings</button>
 ```
 
+`ConsentControl.open()` does the same from your own code. Opening moves the keyboard focus
+into the banner, saving moves it back to the element the visitor came from.
+
+### Withdrawing consent
+
+Scripts a category has loaded keep running after the visitor withdraws it. So when a
+category that was applied on the current page is withdrawn, the page reloads right after
+the `consent-updated` event (see below). Set `reloadOnRevoke: false` to handle a withdrawal
+yourself, e.g. with `e.detail.revoked`.
+
+### Reset button
+
+A `.consent-control--reset` button deletes all cookies and localStorage entries the page can
+reach, including the consent cookie, and reloads the page. Keep what your site needs to
+work, e.g. the session or the cart:
+
+```js
+ConsentControl.init({
+   keepOnReset: ['PHPSESSID', 'cart_*'], // exact names, or prefixes ending in *
+})
+```
+
 ### Theming
 
 The self-rendered banner reads CSS variables scoped to `#consent-control-banner`. The accent
@@ -190,8 +214,9 @@ ConsentControl.init({
 })
 ```
 
-`scripts` are injected once on consent (deduplicated by `src`); `inlineScript` runs once
-inside a `try/catch`. `callback` keeps working and can be combined with both.
+`scripts` are injected once on consent (deduplicated by `src`). `inlineScript` and
+`callback` run once per page load, each inside a `try/catch`, so a failing service does not
+stop the others. To react to every later change, listen to the `consent-updated` event.
 
 ### Server-rendered markup (Laravel, WordPress, any framework)
 
@@ -201,17 +226,21 @@ re-render, no flash). Provide these selectors:
 
 | Selector | Role |
 |---|---|
-| `#consent-control-banner` | Container. Start with classes `hide is-collapsed` so it stays hidden when a cookie already exists. |
+| `#consent-control-banner` | Container. Start with classes `hide is-collapsed` so it stays hidden when a cookie already exists. Give it a role and a label, e.g. `role="dialog" aria-label="…"`. |
 | `.switches` › `input[value="{key}"]` | One checkbox per category (`disabled`/`checked` as needed). |
 | `#consent-control--submit` | Save selected ("OK"). |
 | `#consent-control--submit-all` | Allow all. |
 | `#consent-control--submit-none` | Reject all (optional, opt-in). |
-| `.consent-control--open` / `--close` / `--reset` | Reopen / collapse / delete all cookies. |
+| `.consent-control--open` / `--close` / `--reset` | Reopen / collapse / delete all cookies (see `keepOnReset`). |
 | `.collapsed-only` / `.uncollapsed-only` | Visibility helpers. |
 
 When the markup already exists, the matching `template.*` strings are ignored for those
 parts. The same applies to `ConsentMessage` (`.consent-message--wrapper`, `iframe[data-src]`,
 `button.confirm`).
+
+The default banner is a non-modal `role="dialog"` labelled with `{mainTitle}`. While it is
+hidden, the runtime sets `aria-hidden="true"` and `inert` on the container, so keyboard and
+screen reader users don't end up in it.
 
 ### Consent updated event
 
@@ -220,6 +249,7 @@ Whenever the consent state is applied, a `consent-updated` event is dispatched o
 ```js
 window.addEventListener('consent-updated', (e) => {
    console.log('granted:', e.detail.consents) // e.g. ['necessary','analytics']
+   console.log('withdrawn:', e.detail.revoked) // applied on this page before, e.g. ['functional']
 })
 ```
 
@@ -301,6 +331,11 @@ Pass the name explicitly as a second argument to target a different cookie.
    })
 ```
 
+The options passed to `ConsentMessage.new()` apply to that message only. It may run before
+`ConsentControl.init()`: content with a stored consent then loads once `init()` has validated
+that consent, so a consent of an outdated `version` doesn't load it. On pages without
+`init()` it loads once the document is parsed.
+
 You might also use it with Laravel & AlpineJS:
 ```blade
    <div 
@@ -331,3 +366,25 @@ You might also use it with Laravel & AlpineJS:
       ></iframe>
    </div>
 ```
+
+## Upgrading from 2.1
+
+2.2 fixes consent messages that threw or reloaded their content on later saves, and
+content that loaded on an outdated consent `version`. Behaviour that changes:
+
+- Withdrawing a category reloads the page, and so does the reset button (`reloadOnRevoke`).
+- `callback` runs once per page load, like `inlineScript`. Listen to `consent-updated` to
+  react to every change.
+- Options passed to `ConsentControl.init()` or `ConsentMessage.new()` no longer carry over
+  to later calls.
+- A reopened banner shows the saved choice, so a rejected pre-checked category stays off.
+
+## Development
+
+```bash
+npm test                               # tests in jsdom, against a build of src/
+CC_BUNDLE=dist/bundle.min.js npm test  # the same tests against a built bundle
+npm run build:js && npm run build:css
+```
+
+`npm version` runs the tests before it builds, tags, pushes and publishes.

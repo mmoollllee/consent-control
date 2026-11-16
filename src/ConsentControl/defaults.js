@@ -14,6 +14,16 @@ export const defaults = {
    // optional service). Set true if you pre-check optional switches.
    rejectButton: false,
 
+   // Reload the page when the visitor withdraws a category that was applied on
+   // this page, and after the reset button deleted the cookies: scripts loaded
+   // for it keep running otherwise. Set false to handle a withdrawal yourself
+   // (see the `consent-updated` event and its `detail.revoked`).
+   reloadOnRevoke: true,
+
+   // Cookie names and localStorage keys the reset button must not delete, e.g.
+   // the session or the cart: exact names, or prefixes ending in `*`.
+   keepOnReset: [],
+
    template: {
       strings: {
          mainTitle: 'Cookies & Dienste',
@@ -29,7 +39,8 @@ export const defaults = {
       },
 
       // Main container element. Needs #consent-control-banner
-      main: `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
+      // (non-modal: the page stays usable while it is open)
+      main: `<div id="consent-control-banner" class="is-collapsed" role="dialog" aria-label="{mainTitle}">
          </div>`,
 
       headerEl: 'header',

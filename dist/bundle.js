@@ -162,6 +162,16 @@
   };
 
   /**
+   * Whether the stored consent was given for the configured `version` (always true
+   * while versioning is off). Outdated consent counts as no consent.
+   */
+  const consentVersionOk = () => {
+     const version = cookieOpts().version;
+     return version === null || version === undefined
+        || String(getConsentVersion()) === String(version)
+  };
+
+  /**
    * Expire the consent cookie (and its version companion) on the current domain.
    */
   const clearConsentControlCookie = () => {
@@ -176,15 +186,25 @@
   };
 
   /**
-   * Delete all cookies from this page (reset button).
+   * Delete all cookies and localStorage entries from this page (reset button).
+   * @param {Array} keep cookie names / localStorage keys to spare (e.g. session, cart):
+   *    exact names, or prefixes ending in `*`
    */
-  const deleteAllCookies$1 = () => {
+  const deleteAllCookies = (keep = []) => {
+     const kept = (name) => [].concat(keep || []).some((pattern) => pattern.endsWith('*')
+        ? name.startsWith(pattern.slice(0, -1))
+        : name === pattern);
+
      var cookies = document.cookie.split('; ');
      for (var c = 0; c < cookies.length; c++) {
+        const name = cookies[c].split(';')[0].split('=')[0];
+        if (!name || kept(name)) {
+           continue
+        }
         var d = window.location.hostname.split('.');
         while (d.length > 0) {
            var cookieBase =
-              encodeURIComponent(cookies[c].split(';')[0].split('=')[0]) +
+              encodeURIComponent(name) +
               '=; expires=Thu, 01-Jan-1970 00:00:01 GMT; domain=' +
               d.join('.') +
               ' ;path=';
@@ -197,7 +217,15 @@
            d.shift();
         }
      }
-     window.localStorage.clear();
+     try {
+        Object.keys(window.localStorage).forEach((key) => {
+           if (!kept(key)) {
+              window.localStorage.removeItem(key);
+           }
+        });
+     } catch (e) {
+        // storage blocked (privacy settings, sandboxed iframe): nothing to delete
+     }
 
      const strings = (cookieOpts().template && cookieOpts().template.strings) || {};
      if (strings.resetMessage) {
@@ -259,6 +287,16 @@
      // optional service). Set true if you pre-check optional switches.
      rejectButton: false,
 
+     // Reload the page when the visitor withdraws a category that was applied on
+     // this page, and after the reset button deleted the cookies: scripts loaded
+     // for it keep running otherwise. Set false to handle a withdrawal yourself
+     // (see the `consent-updated` event and its `detail.revoked`).
+     reloadOnRevoke: true,
+
+     // Cookie names and localStorage keys the reset button must not delete, e.g.
+     // the session or the cart: exact names, or prefixes ending in `*`.
+     keepOnReset: [],
+
      template: {
         strings: {
            mainTitle: 'Cookies & Dienste',
@@ -274,7 +312,8 @@
         },
 
         // Main container element. Needs #consent-control-banner
-        main: `<div id="consent-control-banner" class="is-collapsed" aria-modal="true" aria-hidden="true" aria-label="{mainTitle}">
+        // (non-modal: the page stays usable while it is open)
+        main: `<div id="consent-control-banner" class="is-collapsed" role="dialog" aria-label="{mainTitle}">
          </div>`,
 
         headerEl: 'header',
@@ -316,7 +355,8 @@
   const self$1 = ConsentControl;
 
   self$1.init = (options = {}) => {
-     self$1.options = extend(true, defaults$1, options);
+     // copy the defaults, so options of an earlier init() call don't stick
+     self$1.options = extend(true, {}, defaults$1, options);
 
      // Accept `categories`/`children` as preferred aliases for `switches`/`childs`
      // so PHP/HTML config can use the clearer vocabulary. `switches`/`childs`
@@ -338,24 +378,32 @@
      document.querySelectorAll(".consent-control--open").forEach(function(e) {
         e.addEventListener('click', (e) => {
            e.preventDefault();
-           self$1.show();
-           self$1.El && self$1.El.classList.remove('is-collapsed');
+           self$1.open();
         });
      });
 
+     // A server-rendered banner that starts hidden stays out of reach for
+     // keyboard and screen readers until it is shown.
+     self$1.El = document.querySelector('#consent-control-banner');
+     if (self$1.El && self$1.El.classList.contains('hide')) {
+        setHidden(true);
+     }
+
      // Show the banner unless we have valid consent for the current version.
      const cookie = getConsentControlCookie();
-     const version = self$1.options.version;
-     const versionOk = (version === null || version === undefined)
-        || String(getConsentVersion()) === String(version);
+     const versionOk = consentVersionOk();
+
+     // Stale consent from an older version → reset it for a fresh opt-in.
+     if (cookie && cookie.length && !versionOk) {
+        clearConsentControlCookie();
+     }
+
+     // ConsentMessage.new() calls made before init() waited for this check
+     window.ConsentMessage && window.ConsentMessage.consentChecked && window.ConsentMessage.consentChecked();
 
      if (cookie && cookie.length && versionOk) {
         runServices();
      } else {
-        // Stale consent from an older version → reset it for a fresh opt-in.
-        if (cookie && cookie.length && !versionOk) {
-           clearConsentControlCookie();
-        }
         self$1.show();
      }
   };
@@ -375,11 +423,16 @@
         aliveConsentControlBanner();
      }
 
-     if (cookie.length) {
-        cookie.forEach(function (i) {
-           self$1.El.querySelectorAll('input[value=' + i + ']').forEach((i) => {
-              i.checked = true;
-           });
+     // Reflect the saved choice: granted categories on, the others off, so "OK"
+     // does not grant a pre-checked category the visitor rejected before. Locked
+     // (disabled) switches keep their configured state unless granted.
+     if (cookie) {
+        self$1.El.querySelectorAll('input').forEach((input) => {
+           if (cookie.includes(input.value)) {
+              input.checked = true;
+           } else if (!input.disabled) {
+              input.checked = false;
+           }
         });
      }
 
@@ -393,6 +446,72 @@
      }
 
      self$1.El.classList.remove('hide');
+     setHidden(false);
+  };
+
+  /**
+   * Reopen the banner with the settings expanded and move the focus into it
+   * (what every .consent-control--open element does).
+   */
+  self$1.open = () => {
+     const active = document.activeElement;
+     self$1.show();
+     // remember where the visitor came from, to return there on save
+     if (active && active !== document.body && !self$1.El.contains(active)) {
+        self$1.opener = active;
+     }
+     self$1.El.classList.remove('is-collapsed');
+     focusBanner();
+  };
+
+  /**
+   * Hide the banner after a choice was saved
+   */
+  const hide = () => {
+     const focused = self$1.El.contains(document.activeElement) && document.activeElement;
+     self$1.El.classList.add("hide", "is-collapsed");
+     setHidden(true);
+     // the focus must not stay in the hidden banner: return it to the opener
+     if (focused) {
+        if (self$1.opener && self$1.opener.isConnected) {
+           self$1.opener.focus();
+        } else {
+           focused.blur();
+        }
+     }
+     self$1.opener = null;
+  };
+
+  /**
+   * Keep screen readers and keyboard focus in line with the banner's visibility
+   * (the hidden banner is only faded and moved out of view).
+   */
+  const setHidden = (hidden) => {
+     if (hidden) {
+        self$1.El.setAttribute('aria-hidden', 'true');
+        self$1.El.setAttribute('inert', '');
+     } else {
+        self$1.El.removeAttribute('aria-hidden');
+        self$1.El.removeAttribute('inert');
+     }
+  };
+
+  /**
+   * Move the focus to the banner itself, e.g. when the focused button disappears
+   * by expanding or collapsing the settings.
+   */
+  const focusBanner = () => {
+     if (!self$1.El.hasAttribute('tabindex')) {
+        self$1.El.setAttribute('tabindex', '-1');
+     }
+     self$1.El.focus({ preventScroll: true });
+  };
+
+  /**
+   * Reload the page, so scripts of withdrawn categories stop running
+   */
+  const reload = () => {
+     window.location.reload();
   };
 
   /**
@@ -533,7 +652,7 @@
         });
 
         setConsentControlCookie(cookie);
-        self$1.El.classList.add("hide", "is-collapsed");
+        hide();
         runServices();
      });
      
@@ -549,7 +668,7 @@
         });
 
         setConsentControlCookie(cookie);
-        self$1.El.classList.add("hide", "is-collapsed");
+        hide();
         runServices();
      });
 
@@ -570,7 +689,7 @@
            });
 
            setConsentControlCookie(cookie);
-           self$1.El.classList.add("hide", "is-collapsed");
+           hide();
            runServices();
         });
      }
@@ -582,12 +701,14 @@
         e.addEventListener('click', (e) => {
            e.preventDefault();
            self$1.El.classList.add("is-collapsed");
+           focusBanner();
         });
      });
      self$1.El.querySelectorAll(".consent-control--open").forEach(function(e) {
         e.addEventListener('click', (e) => {
            e.preventDefault();
            self$1.El.classList.remove("is-collapsed");
+           focusBanner();
         });
      });
 
@@ -597,7 +718,11 @@
      self$1.El.querySelectorAll(".consent-control--reset").forEach(function(e) {
         e.addEventListener('click', (e) => {
            e.preventDefault();
-           deleteAllCookies();
+           deleteAllCookies(self$1.options.keepOnReset);
+           // services of this page would set their cookies again
+           if (self$1.options.reloadOnRevoke) {
+              reload();
+           }
         });
      });
 
@@ -615,7 +740,11 @@
    * no longer match the selector).
    */
   function activateBlockedScripts(consent) {
-     document.querySelectorAll('script[type="text/plain"][data-consent="' + consent + '"]').forEach((old) => {
+     document.querySelectorAll('script[type="text/plain"][data-consent]').forEach((old) => {
+        // compared here instead of in the selector: the value comes from the cookie
+        if (old.getAttribute('data-consent') !== consent) {
+           return
+        }
         const s = document.createElement('script');
         for (let i = 0; i < old.attributes.length; i++) {
            const attr = old.attributes[i];
@@ -636,6 +765,10 @@
      }
      
      self$1._ran = self$1._ran || {};
+
+     // categories applied earlier on this page that are withdrawn now
+     const revoked = (self$1._applied || []).filter((i) => !cookie.includes(i));
+     self$1._applied = cookie;
 
      cookie.forEach((i) => {
         const service = self$1.options.switches[i];
@@ -659,24 +792,34 @@
               }
            }
 
-           self$1._ran[i] = true;
-        }
+           // Imperative callback (backwards compatible), once per page like the
+           // declarative services: a failing one must not stop the others.
+           if (typeof service.callback === 'function') {
+              try {
+                 service.callback();
+              } catch (e) {
+                 console.error('[ConsentControl] callback error for "' + i + '":', e);
+              }
+           }
 
-        // Imperative callback (backwards compatible).
-        if (service && typeof service.callback === 'function') {
-           service.callback();
+           self$1._ran[i] = true;
         }
 
         // Activate any <script type="text/plain" data-consent="…"> tags.
         activateBlockedScripts(i);
 
-        ConsentMessage && ConsentMessage.remove(i);
+        window.ConsentMessage && window.ConsentMessage.remove(i);
      });
 
      // Let consent gates / other listeners react to the current consent state.
-     window.dispatchEvent(new CustomEvent('consent-updated', { detail: { consents: cookie } }));
+     window.dispatchEvent(new CustomEvent('consent-updated', { detail: { consents: cookie, revoked } }));
 
      self$1.status.push("run");
+
+     // What withdrawn categories loaded keeps running until the page is reloaded
+     if (revoked.length && self$1.options.reloadOnRevoke) {
+        reload();
+     }
   }
 
   const defaults = {
@@ -691,11 +834,16 @@
      }
   };
 
-  const ConsentMessage$1 = {
+  const ConsentMessage = {
      callbacks: {}
   };
 
-  const self = ConsentMessage$1;
+  const self = ConsentMessage;
+
+  // Messages created while a stored consent was not validated by ConsentControl.init()
+  // yet: init() may still discard it (e.g. after a version bump). See consentChecked().
+  let pending = [];
+  let consentCheckDone = false;
 
   self.new = (
      consent, 
@@ -703,15 +851,23 @@
      options = {}, 
      srcName, 
      callback = () => {
-        target = target.tagName === 'IFRAME' ? target : target.querySelector('iframe');
-        target.setAttribute('src', target.getAttribute('data-src'));
-        removeConsentMessage(target);
+        // local variable: `target` must stay the registered element (see target.callback)
+        const iframe = target.tagName === 'IFRAME' ? target : target.querySelector('iframe');
+        iframe.setAttribute('src', iframe.getAttribute('data-src'));
+        removeConsentMessage(iframe);
      }
   ) => {
-     self.options = extend(true, defaults, options);
+     // stored consent not validated yet: wait for ConsentControl.init()
+     if (consent && !consentCheckDone && getConsentControlCookie(consent)) {
+        waitForConsentCheck([consent, target, options, srcName, callback]);
+        return
+     }
+
+     // copy the defaults, so options stay local to this message
+     self.options = extend(true, {}, defaults, options);
 
      // if consent is already given, else bind callback to target
-     if (consent && getConsentControlCookie(consent)) {
+     if (consent && getConsentControlCookie(consent) && consentVersionOk()) {
         callback();
         removeConsentMessage(target);
         return
@@ -720,6 +876,10 @@
            callback();
            removeConsentMessage(target);
            delete target.callback;
+           // resolved: drop target from its consent group, so remove() won't call it again
+           if (self.callbacks[consent]) {
+              self.callbacks[consent] = self.callbacks[consent].filter((e) => e !== target);
+           }
         };
      }
 
@@ -751,8 +911,12 @@
         }
      }
 
-     // bind callback event
-     wrapper.querySelector('button.confirm').addEventListener('click', () => target.callback());
+     // bind callback event (custom markup may come without a button)
+     const button = wrapper.querySelector('button.confirm');
+     if (button) {
+        // the button may outlive the message (custom markup): ignore clicks once resolved
+        button.addEventListener('click', () => target.callback && target.callback());
+     }
      
      // add target to consent groups' instances
      if ( !self.callbacks[consent] ) {
@@ -762,10 +926,46 @@
   };
 
   self.remove = (consent) => {
+     // each callback drops its target from self.callbacks[consent] by replacing the
+     // list (see new()), so `targets` stays intact while we iterate
      const targets = self.callbacks[consent] || [];
      targets.forEach((e) => {
-        e.callback();
+        // skip targets that are already resolved (e.g. registered twice)
+        if (typeof e.callback === 'function') {
+           // a failing message must not stop the others (or the caller's services)
+           try {
+              e.callback();
+           } catch (error) {
+              console.error('[ConsentMessage] callback error for "' + consent + '":', error);
+           }
+        }
      });
+  };
+
+  /**
+   * Called by ConsentControl.init() once the stored consent is validated (and cleared
+   * if outdated): create the messages that waited for this check.
+   */
+  self.consentChecked = () => {
+     consentCheckDone = true;
+     const queue = pending;
+     pending = [];
+     queue.forEach((args) => self.new(...args));
+  };
+
+  const waitForConsentCheck = (args) => {
+     if (!pending.length) {
+        // Fallback for pages without ConsentControl.init(): trust the stored consent
+        // once the document is parsed. The extra tick lets an init() call in the same
+        // task or in a DOMContentLoaded handler run first.
+        const fallback = () => setTimeout(() => consentCheckDone || self.consentChecked(), 0);
+        if (document.readyState === 'loading') {
+           document.addEventListener('DOMContentLoaded', fallback, { once: true });
+        } else {
+           fallback();
+        }
+     }
+     pending.push(args);
   };
 
   const removeConsentMessage = (target) => {
@@ -778,19 +978,19 @@
      }
   };
 
-  window.deleteAllCookies = deleteAllCookies$1;
+  window.deleteAllCookies = deleteAllCookies;
   window.loadScript = loadScript;
   window.getConsentControlCookie = getConsentControlCookie;
   window.setConsentControlCookie = setConsentControlCookie;
   window.getConsentVersion = getConsentVersion;
   window.clearConsentControlCookie = clearConsentControlCookie;
   window.ConsentControl = ConsentControl;
-  window.ConsentMessage = ConsentMessage$1;
+  window.ConsentMessage = ConsentMessage;
 
   exports.ConsentControl = ConsentControl;
-  exports.ConsentMessage = ConsentMessage$1;
+  exports.ConsentMessage = ConsentMessage;
   exports.clearConsentControlCookie = clearConsentControlCookie;
-  exports.deleteAllCookies = deleteAllCookies$1;
+  exports.deleteAllCookies = deleteAllCookies;
   exports.getConsentControlCookie = getConsentControlCookie;
   exports.getConsentVersion = getConsentVersion;
   exports.loadScript = loadScript;

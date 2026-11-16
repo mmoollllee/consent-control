@@ -92,6 +92,16 @@ export const getConsentVersion = () => {
 }
 
 /**
+ * Whether the stored consent was given for the configured `version` (always true
+ * while versioning is off). Outdated consent counts as no consent.
+ */
+export const consentVersionOk = () => {
+   const version = cookieOpts().version
+   return version === null || version === undefined
+      || String(getConsentVersion()) === String(version)
+}
+
+/**
  * Expire the consent cookie (and its version companion) on the current domain.
  */
 export const clearConsentControlCookie = () => {
@@ -106,15 +116,25 @@ export const clearConsentControlCookie = () => {
 }
 
 /**
- * Delete all cookies from this page (reset button).
+ * Delete all cookies and localStorage entries from this page (reset button).
+ * @param {Array} keep cookie names / localStorage keys to spare (e.g. session, cart):
+ *    exact names, or prefixes ending in `*`
  */
-export const deleteAllCookies = () => {
+export const deleteAllCookies = (keep = []) => {
+   const kept = (name) => [].concat(keep || []).some((pattern) => pattern.endsWith('*')
+      ? name.startsWith(pattern.slice(0, -1))
+      : name === pattern)
+
    var cookies = document.cookie.split('; ')
    for (var c = 0; c < cookies.length; c++) {
+      const name = cookies[c].split(';')[0].split('=')[0]
+      if (!name || kept(name)) {
+         continue
+      }
       var d = window.location.hostname.split('.')
       while (d.length > 0) {
          var cookieBase =
-            encodeURIComponent(cookies[c].split(';')[0].split('=')[0]) +
+            encodeURIComponent(name) +
             '=; expires=Thu, 01-Jan-1970 00:00:01 GMT; domain=' +
             d.join('.') +
             ' ;path='
@@ -127,7 +147,15 @@ export const deleteAllCookies = () => {
          d.shift()
       }
    }
-   window.localStorage.clear()
+   try {
+      Object.keys(window.localStorage).forEach((key) => {
+         if (!kept(key)) {
+            window.localStorage.removeItem(key)
+         }
+      })
+   } catch (e) {
+      // storage blocked (privacy settings, sandboxed iframe): nothing to delete
+   }
 
    const strings = (cookieOpts().template && cookieOpts().template.strings) || {}
    if (strings.resetMessage) {

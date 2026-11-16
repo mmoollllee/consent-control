@@ -21,23 +21,12 @@ for (const file of files) {
 
   console.log(`${input_file} → ${output_file}...`);
 
-  sass.render(
-    {
-      file: input_file,
-      outputStyle: "compressed",
-    },
-    (error, result) => {
-      if (!error) {
-        fs.writeFile(output_file, result.css, (err) => {
-          if (!err) {
-            console.log(`Created ${output_file}`);
-          } else {
-            console.error(err);
-          }
-        });
-      } else {
-        console.error(error);
-      }
-    }
-  );
+  try {
+    const result = sass.compile(input_file, { style: "compressed" });
+    fs.writeFileSync(output_file, result.css);
+    console.log(`Created ${output_file}`);
+  } catch (error) {
+    console.error(error);
+    process.exitCode = 1;
+  }
 }
